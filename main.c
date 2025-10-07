@@ -5,7 +5,13 @@
 /* ERROR CODES */
 #define INVALIDARGUMENTSERROR -1
 
+/* MENU OPTIONS*/
+#define MENUENCODE 1
+#define MENUDECODE 2
+#define MENUEXIT 3
+
 /* CONST PARAMETERS */
+#define MAXFILELEN 256
 #define MAXMESSAGELEN 256
 
 /* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress 
@@ -34,6 +40,10 @@ void printMenu(void);
 
 void printHelp(void);
 
+int menuEncodeSelected(void);
+
+int menuDecodeSelected(void);
+
 /* Should be run at the start of the program, and processes if the program should run in 
 interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
 int processArgs(int argc, char* argv[]);
@@ -47,7 +57,25 @@ int main(int argc, char* argv[])
     }
 
     /* Otherwise, run interactively. */
-    printf("Running interactively\n");
+    printf("Stegano - Image steganography in C.\n");
+    while (1)
+    {
+        int input = 0;
+        printMenu();
+        scanf("%i", &input);
+
+        switch (input)
+        {
+            case MENUEXIT:
+                return 0;
+            case MENUENCODE:
+                menuEncodeSelected();
+                break;
+            case MENUDECODE:
+                menuDecodeSelected();
+                break;
+        }
+    }
     return 0;
 }
 
@@ -81,22 +109,22 @@ int processArgs(int argc, char* argv[])
     else if (strcmp(argv[1], "-d") == 0)
     {
         printf("decoding checkpoint 1\n");
-        /* TODO: Check this. Non zero chance i've messed this up*/
         if ((argc < 4 && strcmp(argv[2], "-i") != 0) || \
             (argc < 6 && strcmp(argv[2], "-i") != 0 && strcmp(argv[4], "-o") != 0))
         {
+            printf("Invalid flag, please check and try again.");
             printHelp();
             return INVALIDARGUMENTSERROR;
         }
 
-        char outString[MAXMESSAGELEN];
-        int result = decode(argv[3], outString);
+        char message[MAXMESSAGELEN];
+        int result = decode(argv[3], message);
 
         /* Assume outfile was passed */
         if (result == 0 && argc >= 5)
         {
             FILE* file = fopen(argv[5], "w+");
-            fprintf(file, "%s", outString);
+            fprintf(file, "%s", message);
             fclose(file);
         }
 
@@ -125,6 +153,70 @@ void printHelp(void)
     "\t-h: Displays this help message.\n\n" \
     "If no flags are provided, the program will run in interactive mode.\n" \
     "Note that order matters when flags are used\n");
+}
+
+void printMenu(void)
+{
+    printf("1. Encode a Message into an Image\n" \
+    "2. Decode a message from an Image\n" \
+    "3. Exit\n" \
+    "Select an option: ");
+}
+
+int menuEncodeSelected()
+{
+    char infile[MAXFILELEN];
+    char outfile[MAXFILELEN];
+    char message[MAXMESSAGELEN];
+
+    /* TODO: CHANGE TO FGETS AND SSCANF */
+    printf("What input file should we use (this should be a BMP image): ");
+    scanf("%255[^\n]", infile);
+
+    printf("What should we call the new file (leave blank for default): ");
+    scanf("%255[^\n]", outfile);
+
+    if (outfile[0] == '\0')
+    {
+        /* Use a default file name if no file name is entered */
+        strcpy(outfile, "encoded.bmp");
+    }
+
+    printf("What mesasge would you like to encode into the image? ");
+    scanf("%255[^\n]", message);
+
+    return encode(infile, outfile, message);
+}
+
+int menuDecodeSelected()
+{
+    char infile[MAXFILELEN];
+    char outfile[MAXFILELEN];
+    char message[MAXMESSAGELEN];
+
+    printf("What input file should we use (this should be a BMP image): ");
+    scanf("%255[^\n]", infile);
+
+    printf("What should we call the new file (leave blank to display message in the terminal): ");
+    scanf("%255[^\n]", outfile);
+
+    int result = decode(infile, message);
+
+    if (result == 0)
+    {
+        if (outfile[0] == '\0')
+        {
+            printf("%s", message);
+        }
+        else 
+        {
+            FILE* file = fopen(outfile, "w+");
+            fprintf(file, "%s", message);
+            fclose(file);
+        }
+    }
+
+    return result;
 }
 
 int encode(char infile[], char outfile[], char message[])
