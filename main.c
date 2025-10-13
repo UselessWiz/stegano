@@ -31,22 +31,61 @@ void processArgs(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
-    printf("--Testing Main--");
+    printf("--Testing Queue--\n");
     queue_t q;
     initialiseQueue(&q);
 
     enqueue(&q, 1);
+    printf("Added item\n");
     printQueue(&q);
+    printf("Front element: %d\n", peek(&q));
 
     enqueue(&q, 20);
+    printf("Added item\n");
+
     printQueue(&q);
+    printf("Front element: %d\n", peek(&q));
 
     enqueue(&q, 30);
+    printf("Added item\n");
+
     printQueue(&q);
+    printf("Front element: %d\n", peek(&q));
 
     dequeue(&q);
+    printf("Removed element\n");
+
+    enqueue(&q, 40);
+    printf("Added item\n");
+
+    enqueue(&q, 50);
+    printf("Added item\n");
+    enqueue(&q, 60);
+    printf("Added item\n");
+
+    enqueue(&q, 70);
+    printf("Added item\n");
+
+    enqueue(&q, 80);
+    printf("Added item\n");
 
     printf("Front element after dequeue: %d\n", peek(&q));
+    dequeue(&q);
+    printf("Removed element\n");
+
+    printf("Front element after dequeue: %d\n", peek(&q));
+    printQueue(&q);
+
+    enqueue(&q, 90);
+    printf("Added item\n");
+
+    enqueue(&q, 100);
+    printf("Added item\n");
+
+    enqueue(&q, 110);
+    printf("Added item\n");
+
+    printQueue(&q);
 
     return 0;
 }

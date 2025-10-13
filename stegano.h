@@ -2,7 +2,7 @@
 #define STEGANO
 #include <stdio.h>
 
-#define MAX_SIZE 5
+#define MAX_SIZE 10
 
 /* QUEUE */
 typedef struct Queue

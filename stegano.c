@@ -1,6 +1,5 @@
 #include "stegano.h"
 #include <stdio.h>
-#define MAX_SIZE 5
 
 void initialiseQueue(queue_t *q)
 {
