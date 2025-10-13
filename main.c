@@ -1,6 +1,6 @@
 #include "stegano.h"
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h> /* printf, sscanf, fgets, fopen, fprintf, fclose,  */
+#include <string.h> /*  */
 
 /* ERROR CODES */
 #define INVALIDARGUMENTSERROR -1
@@ -79,6 +79,9 @@ int main(int argc, char* argv[])
             case MENUDECODE:
                 menuDecodeSelected();
                 break;
+            default:
+                printf("Invalid item.");
+                break;
         }
     }
     return 0;
@@ -98,7 +101,7 @@ Parameters:
 
 Returns (int):
     The status of argument processing. 0 if everything is successful, 
-    > 0 if there is an error.
+    < 0 if there is an error.
 */
 int processArgs(int argc, char* argv[])
 {
