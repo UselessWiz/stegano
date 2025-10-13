@@ -44,8 +44,8 @@ int menuEncodeSelected(void);
 
 int menuDecodeSelected(void);
 
-/* Should be run at the start of the program, and processes if the program should run in 
-interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
+void stringInput(char prompt[], int maxResponseLen, char response[]);
+
 int processArgs(int argc, char* argv[]);
 
 int main(int argc, char* argv[])
@@ -60,10 +60,15 @@ int main(int argc, char* argv[])
     printf("Stegano - Image steganography in C.\n");
     while (1)
     {
-        int input = 0;
-        printMenu();
-        scanf("%i", &input);
+        int input;
+        char inputStr[3];
 
+        printMenu();
+        
+        printf("Select an option: ");
+        fgets(inputStr, 3, stdin);
+        sscanf(inputStr, "%1d", &input);
+        
         switch (input)
         {
             case MENUEXIT:
@@ -79,7 +84,22 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-/* Order of arguments matters because it makes life easier*/
+/* 
+Processes the commandline arguments passed to the program.
+
+Should be run at the start of the program, and processes if the program should run in 
+interactive mode or not (and if not, processes what needs to happen based on cmd instructions)
+
+Note that this assumes that the expected order of arguments is followed.
+Parameters:
+    - argc (int): the number of arguments passed.
+    - argv (char**): an array of pointers to where those arguments 
+    are stored in memory
+
+Returns (int):
+    The status of argument processing. 0 if everything is successful, 
+    > 0 if there is an error.
+*/
 int processArgs(int argc, char* argv[])
 {
     /* Help argument */
@@ -92,7 +112,6 @@ int processArgs(int argc, char* argv[])
     /* stegano -e -i input.bmp -o output.bmp -m "Test Message" */
     if (strcmp(argv[1], "-e") == 0)
     {
-        printf("encoding checkpoint 1\n");
         /* Find all other arguments */
         if (argc < 8 || \
             !(strcmp(argv[2], "-i") == 0 && strcmp(argv[4], "-o") == 0 && strcmp(argv[6], "-m") == 0))
@@ -108,7 +127,6 @@ int processArgs(int argc, char* argv[])
     /* stegano -d -i input.bmp [-o fileOutput.txt]*/
     else if (strcmp(argv[1], "-d") == 0)
     {
-        printf("decoding checkpoint 1\n");
         if ((argc < 4 && strcmp(argv[2], "-i") != 0) || \
             (argc < 6 && strcmp(argv[2], "-i") != 0 && strcmp(argv[4], "-o") != 0))
         {
@@ -136,6 +154,16 @@ int processArgs(int argc, char* argv[])
     return INVALIDARGUMENTSERROR;
 }
 
+/*
+Prints the help text. This is a static string that doesn't change and lists all
+command line options and usecases.
+
+Parameters:
+    - void
+
+Returns:
+    void
+*/
 void printHelp(void)
 {
     printf("Stegano - Image steganography in C.\n" \
@@ -155,26 +183,44 @@ void printHelp(void)
     "Note that order matters when flags are used\n");
 }
 
+/*
+When in interactive mode, prints the main menu which displays the options that 
+users can choose in interactive mode.
+
+Parameters:
+    - void
+
+Returns
+    void
+*/
 void printMenu(void)
 {
     printf("1. Encode a Message into an Image\n" \
     "2. Decode a message from an Image\n" \
-    "3. Exit\n" \
-    "Select an option: ");
+    "3. Exit\n");
 }
 
-int menuEncodeSelected()
+/*
+Processes what should happen when the encode option is selected from the menu
+in interactive mode.
+
+Parameters:
+    - void
+
+Returns (int):
+    - The status of the corresponding encode function call. 0 if encoding was
+    successful, > 0 if not.
+*/
+int menuEncodeSelected(void)
 {
     char infile[MAXFILELEN];
+    stringInput("What input file should we use (this should be a BMP image): ", MAXFILELEN, infile);
+
     char outfile[MAXFILELEN];
+    stringInput("What should we call the new file (leave blank for default): ", MAXFILELEN, outfile);
+
     char message[MAXMESSAGELEN];
-
-    /* TODO: CHANGE TO FGETS AND SSCANF */
-    printf("What input file should we use (this should be a BMP image): ");
-    scanf("%255[^\n]", infile);
-
-    printf("What should we call the new file (leave blank for default): ");
-    scanf("%255[^\n]", outfile);
+    stringInput("What mesasge would you like to encode into the image? ", MAXMESSAGELEN, message);
 
     if (outfile[0] == '\0')
     {
@@ -182,23 +228,29 @@ int menuEncodeSelected()
         strcpy(outfile, "encoded.bmp");
     }
 
-    printf("What mesasge would you like to encode into the image? ");
-    scanf("%255[^\n]", message);
-
     return encode(infile, outfile, message);
 }
 
-int menuDecodeSelected()
+/*
+Processes what should happen when the decode option is selected from the menu
+in interactive mode.
+
+Parameters:
+    - void
+
+Returns (int):
+    - The status of the corresponding decode function call. 0 if encoding was
+    successful, > 0 if not.
+*/
+int menuDecodeSelected(void)
 {
-    char infile[MAXFILELEN];
-    char outfile[MAXFILELEN];
     char message[MAXMESSAGELEN];
 
-    printf("What input file should we use (this should be a BMP image): ");
-    scanf("%255[^\n]", infile);
+    char infile[MAXFILELEN];
+    stringInput("What input file should we use (this should be a BMP image): ", MAXFILELEN, infile);
 
-    printf("What should we call the new file (leave blank to display message in the terminal): ");
-    scanf("%255[^\n]", outfile);
+    char outfile[MAXFILELEN];
+    stringInput("What should we call the new file (leave blank to display message in the terminal): ", MAXFILELEN, outfile);
 
     int result = decode(infile, message);
 
@@ -206,7 +258,7 @@ int menuDecodeSelected()
     {
         if (outfile[0] == '\0')
         {
-            printf("%s", message);
+            printf("Resulting Message: %s\n", message);
         }
         else 
         {
@@ -219,14 +271,49 @@ int menuDecodeSelected()
     return result;
 }
 
+/* 
+Dummy function
+*/
 int encode(char infile[], char outfile[], char message[])
 {
-    printf("Encoding\n");
+    printf("[DEBUG] Encoding\n");
+    printf("[DEBUG] INPUTFILE: %s\n[DEBUG] OUTPUTFILE: %s\n[DEBUG] MESSAGE: %s\n", infile, outfile, message);
     return 0;
 }
 
+/* 
+Dummy function
+*/
 int decode(char infile[], char outstring[])
 {
-    printf("Decoding\n");
+    printf("[DEBUG] Decoding\n");
+    strcpy(outstring, "Decoding functionality isn't fully functional yet...");
+    printf("[DEBUG] MESSAGE: %s\n", outstring);
     return 0;
+}
+
+/*
+A helper function to easily get string input from the user when the program is
+running interactively. 
+
+Parameters:
+    - prompt (char[]): A short message describing the field the user is 
+    providing a response to.
+    - maxResponseLen (int): The maximum length a response can be. Used to 
+    prevent buffer overflows.
+    - response (char[]): A buffer to store the user's response in. Terminated
+    by a null character.
+*/
+void stringInput(char prompt[], int maxResponseLen, char response[])
+{
+    printf("%s", prompt);
+    
+    fgets(response, maxResponseLen, stdin);
+
+    /* Remove the newline from the string */
+    if (strlen(response) > 0)
+    {
+        char* nl = strrchr(response, '\n');
+        *nl = '\0';
+    }
 }
