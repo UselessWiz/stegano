@@ -2,6 +2,9 @@
 #define STEGANO
 #include <stdio.h>
 
+#define MAX_SIZE 10
+
+/*********************************************************/
 #define FILEHEADER_SIZE 14
 #define BFTYPE_SIZE 2
 #define IMAGEHEADER_SIZE 40
@@ -10,8 +13,6 @@
 #define RGB_PER_PIXEL 3
 
 #define MAX_MESSAGE_SIZE 256
-
-#define MAX_SIZE 10
 
 /***** Encode, decode *****/
 typedef struct {
@@ -46,6 +47,7 @@ typedef struct {
     unsigned int offset;
     rgb_t *rgb;
 } image_t;
+/*********************************************************/
 
 /* QUEUE */
 typedef struct Queue
@@ -55,6 +57,17 @@ typedef struct Queue
     int back;
     int count;
 } queue_t;
+
+/*********************************************************/
+/* Read image, check for correct file format */
+image_t readImage(char *infile);
+
+/* Encode message into image */
+void encode(char *infile, char *outfile, char *message);
+
+/* Decode message from image */
+void decode(char *infile, char *outstring);
+/*********************************************************/
 
 /* Read image's binary information */
 image_t readImage(char *infile);
