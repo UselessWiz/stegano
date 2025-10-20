@@ -1,5 +1,7 @@
 #include "stegano.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /*********************************************************/
 image_t readImage(char *infile) {
