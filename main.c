@@ -1,6 +1,6 @@
 #include "stegano.h"
 #include <stdio.h> /* printf, sscanf, fgets, fopen, fprintf, fclose,  */
-#include <string.h> /*  */
+#include <string.h> /* strcmp, strcpy, strlen, strrchr */
 
 /* ERROR CODES */
 #define INVALIDARGUMENTSERROR -1
@@ -27,7 +27,7 @@ user that there might be errors and ask if they want to proceed. Can also check 
 0x42 0x4D as per format standard. Only prompt in interactive mode */
 int checkFileType(char filename[]);
 
-/* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/
+/* Takes a string in and returns a compressed version of it (Sam)*/
 char *compressMessage(char message[]);
 
 /* Takes a compressed string in and returns the decompressed version of it (Sam) */
@@ -37,17 +37,13 @@ char *decompressMessage(char compressed[]);
 char **getRecentFiles(queue_t *q);
 
 void printMenu(void);
-
 void printHelp(void);
-
 int menuEncodeSelected(void);
-
 int menuDecodeSelected(void);
-
 void stringInput(char prompt[], int maxResponseLen, char response[]);
-
 int processArgs(int argc, char* argv[]);
 
+/* - MAIN FUNCTION - */
 int main(int argc, char* argv[])
 {
     /* If there are any cmd arguments passed, process them and act on them.*/
@@ -56,7 +52,7 @@ int main(int argc, char* argv[])
         return processArgs(argc, argv);
     }
 
-    /* Otherwise, run interactively. */
+    /* Otherwise, run interactively, continuing indefinitely. */
     printf("Stegano - Image steganography in C.\n");
     while (1)
     {
@@ -65,6 +61,7 @@ int main(int argc, char* argv[])
 
         printMenu();
         
+        /* Process user input for menu option handling. */
         printf("Select an option: ");
         fgets(inputStr, 3, stdin);
         sscanf(inputStr, "%1d", &input);
@@ -90,8 +87,9 @@ int main(int argc, char* argv[])
 /* 
 Processes the commandline arguments passed to the program.
 
-Should be run at the start of the program, and processes if the program should run in 
-interactive mode or not (and if not, processes what needs to happen based on cmd instructions)
+Should be run at the start of the program, and processes if the program should 
+run in interactive mode or not (and if not, processes what needs to happen 
+based on cmd instructions)
 
 Note that this assumes that the expected order of arguments is followed.
 Parameters:
@@ -117,7 +115,8 @@ int processArgs(int argc, char* argv[])
     {
         /* Find all other arguments */
         if (argc < 8 || \
-            !(strcmp(argv[2], "-i") == 0 && strcmp(argv[4], "-o") == 0 && strcmp(argv[6], "-m") == 0))
+            !(strcmp(argv[2], "-i") == 0 && strcmp(argv[4], "-o") == 0 && \
+            strcmp(argv[6], "-m") == 0))
         {
             printf("Invalid flag, please check and try again.");
             printHelp();
@@ -131,7 +130,8 @@ int processArgs(int argc, char* argv[])
     else if (strcmp(argv[1], "-d") == 0)
     {
         if ((argc < 4 && strcmp(argv[2], "-i") != 0) || \
-            (argc < 6 && strcmp(argv[2], "-i") != 0 && strcmp(argv[4], "-o") != 0))
+            (argc < 6 && strcmp(argv[2], "-i") != 0 && \
+            strcmp(argv[4], "-o") != 0))
         {
             printf("Invalid flag, please check and try again.");
             printHelp();
@@ -217,13 +217,16 @@ Returns (int):
 int menuEncodeSelected(void)
 {
     char infile[MAXFILELEN];
-    stringInput("What input file should we use (this should be a BMP image): ", MAXFILELEN, infile);
+    stringInput("What input file should we use (this should be a BMP image): "\
+        , MAXFILELEN, infile);
 
     char outfile[MAXFILELEN];
-    stringInput("What should we call the new file (leave blank for default): ", MAXFILELEN, outfile);
+    stringInput("What should we call the new file (leave blank for default): "\
+        , MAXFILELEN, outfile);
 
     char message[MAXMESSAGELEN];
-    stringInput("What mesasge would you like to encode into the image? ", MAXMESSAGELEN, message);
+    stringInput("What mesasge would you like to encode into the image? ", \
+        MAXMESSAGELEN, message);
 
     if (outfile[0] == '\0')
     {
@@ -250,10 +253,12 @@ int menuDecodeSelected(void)
     char message[MAXMESSAGELEN];
 
     char infile[MAXFILELEN];
-    stringInput("What input file should we use (this should be a BMP image): ", MAXFILELEN, infile);
+    stringInput("What input file should we use (this should be a BMP image): "\
+        , MAXFILELEN, infile);
 
     char outfile[MAXFILELEN];
-    stringInput("What should we call the new file (leave blank to display message in the terminal): ", MAXFILELEN, outfile);
+    stringInput("What should we call the new file (leave blank to display \
+        message in the terminal): ", MAXFILELEN, outfile);
 
     int result = decode(infile, message);
 
@@ -280,7 +285,8 @@ Dummy function
 int encode(char infile[], char outfile[], char message[])
 {
     printf("[DEBUG] Encoding\n");
-    printf("[DEBUG] INPUTFILE: %s\n[DEBUG] OUTPUTFILE: %s\n[DEBUG] MESSAGE: %s\n", infile, outfile, message);
+    printf("[DEBUG] INPUTFILE: %s\n[DEBUG] OUTPUTFILE: %s\n[DEBUG] MESSAGE: \
+        %s\n", infile, outfile, message);
     return 0;
 }
 
