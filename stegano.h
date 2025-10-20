@@ -56,6 +56,15 @@ typedef struct Queue
     int count;
 } queue_t;
 
+/* Read image's binary information */
+image_t readImage(char *infile);
+
+/* Encode message */
+void encode(char *infile, char *outfile, char *message);
+
+/* Decode message */
+void decode(char *infile, char *outstring);
+
 /* Prepare the given queue to be used initially. */
 void initialiseQueue(queue_t *q);
 
