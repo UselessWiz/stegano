@@ -35,56 +35,33 @@ int main(int argc, char *argv[])
     queue_t q;
     initialiseQueue(&q);
 
-    enqueue(&q, 1);
-    printf("Added item\n");
+    enqueue(&q, 'q');
     printQueue(&q);
-    printf("Front element: %d\n", peek(&q));
-
-    enqueue(&q, 20);
-    printf("Added item\n");
-
+    enqueue(&q, '2');
     printQueue(&q);
-    printf("Front element: %d\n", peek(&q));
-
-    enqueue(&q, 30);
-    printf("Added item\n");
-
+    enqueue(&q, '3');
     printQueue(&q);
-    printf("Front element: %d\n", peek(&q));
-
+    enqueue(&q, '4');
+    printQueue(&q);
+    enqueue(&q, '5');
+    printQueue(&q);
+    enqueue(&q, '6');
+    printQueue(&q);
     dequeue(&q);
     printf("Removed element\n");
-
-    enqueue(&q, 40);
-    printf("Added item\n");
-
-    enqueue(&q, 50);
-    printf("Added item\n");
-    enqueue(&q, 60);
-    printf("Added item\n");
-
-    enqueue(&q, 70);
-    printf("Added item\n");
-
-    enqueue(&q, 80);
-    printf("Added item\n");
-
-    printf("Front element after dequeue: %d\n", peek(&q));
     dequeue(&q);
     printf("Removed element\n");
-
-    printf("Front element after dequeue: %d\n", peek(&q));
     printQueue(&q);
-
-    enqueue(&q, 90);
-    printf("Added item\n");
-
-    enqueue(&q, 100);
-    printf("Added item\n");
-
-    enqueue(&q, 110);
-    printf("Added item\n");
-
+    enqueue(&q, '7');
+    printQueue(&q);
+    enqueue(&q, '8');
+    printQueue(&q);
+    enqueue(&q, '1');
+    printQueue(&q);
+    enqueue(&q, '2');
+    printQueue(&q);
+    dequeue(&q);
+    printf("Removed element\n");
     printQueue(&q);
 
     return 0;

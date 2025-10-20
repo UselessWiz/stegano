@@ -3,13 +3,14 @@
 
 void initialiseQueue(queue_t *q)
 {
-    q->front = -1;
+    q->front = 0;
     q->back = 0;
+    q->count = 0;
 }
 
 int isEmpty(queue_t *q)
 {
-    if (q->front == q->back - 1)
+    if (q->count == 0)
     {
         return 1;
     }
@@ -18,14 +19,14 @@ int isEmpty(queue_t *q)
 
 int isFull(queue_t *q)
 {
-    if (q->back == MAX_SIZE)
+    if (q->count == MAX_SIZE)
     {
         return 1;
     }
     return 0;
 }
 
-void enqueue(queue_t *q, int value)
+void enqueue(queue_t *q, char value)
 {
     if (isFull(q))
     {
@@ -33,7 +34,8 @@ void enqueue(queue_t *q, int value)
         return;
     }
     q->items[q->back] = value;
-    q->back++;
+    q->back = (q->back + 1) % MAX_SIZE;
+    q->count++;
 }
 
 void dequeue(queue_t *q)
@@ -43,17 +45,18 @@ void dequeue(queue_t *q)
         printf("Queue is empty\n");
         return;
     }
-    q->front++;
+    q->front = (q->front + 1) % MAX_SIZE;
+    q->count--;
 }
 
-int peek(queue_t *q)
+char peek(queue_t *q)
 {
     if (isEmpty(q))
     {
         printf("Queue is empty\n");
         return -1;
     }
-    return q->items[q->front + 1];
+    return q->items[q->front];
 }
 
 void printQueue(queue_t *q)
@@ -65,10 +68,11 @@ void printQueue(queue_t *q)
     }
 
     printf("Current Queue: ");
-    int i;
-    for (i = q->front + 1; i < q->back; i++)
+    int i, current = q->front;
+    for (i = 0; i < q->count; i++)
     {
-        printf("%d ", q->items[i]);
+        printf("%c ", q->items[current]);
+        current = (current + 1) % MAX_SIZE;
     }
     printf("\n");
 }
