@@ -46,6 +46,7 @@ typedef struct {
     int height;
     unsigned int offset;
     rgb_t *rgb;
+    unsigned char header[HEADER_SIZE];
 } image_t;
 /*********************************************************/
 
@@ -59,6 +60,12 @@ typedef struct Queue
 } queue_t;
 
 /*********************************************************/
+/* Calculates padding needed for each row in the image */
+int calcPadding(int width);
+
+/* Checks for correct BMP file type and format */
+int checkFileType(char *filename);
+
 /* Read image, check for correct file format */
 image_t readImage(char *infile);
 
