@@ -4,19 +4,20 @@
 #include <string.h>
 
 /*********************************************************/
-image_t readImage(char *infile) {
-    int i, j;
+int calcPadding(int width) {
+    const int alignment = 4;
+    int row_bytes = width * RGB_PER_PIXEL;
+    int remainder = alignment - (row_bytes % alignment);
+    int padding = remainder % alignment;
 
-    FILE *image = fopen(infile, "rb");
-    image_t pic;
-    pic.width = 0;
-    pic.height = 0;
-    pic.offset = 0;
-    pic.rgb = NULL;
+    return padding;
+}
 
-    if (!image) {
-        printf("Read image function open error: %s\n", infile);
-        return pic;
+int checkFileType(char *filename) {
+    FILE *image = fopen(filename, "rb");
+    if(!image) {
+        printf("checkFileType open error: %s\n", filename);
+        return 1;
     }
 
     fileheader_t fh;
@@ -29,14 +30,53 @@ image_t readImage(char *infile) {
     fread(&fh.bfOffBits, sizeof(fh.bfOffBits), 1, image);
     fread(&ih, sizeof(imageheader_t), 1, image);
 
-    pic.width = ih.biWidth;
-    pic.height = abs(ih.biHeight);
-    pic.offset = fh.bfOffBits;
-    pic.rgb = malloc(pic.width * pic.height * sizeof(rgb_t));
+    if((fh.bfType[0] != 'B') | (fh.bfType[1] != 'M')) {
+        printf("File not .bmp\n");
+        return 1;
+    }
 
-    fseek(image, pic.offset, SEEK_SET);
-    int row_bytes = pic.width * sizeof(rgb_t);
-    int padding = (4 - (row_bytes % 4)) % 4;
+    if((ih.biSize != 40) || (ih.biCompression != 0) || (ih.biBitCount != 24)) {
+        fclose(image);
+        printf("Image header error\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+image_t readImage(char *infile) {
+    int i, j;
+
+    FILE *image = fopen(infile, "rb");
+    image_t pic;
+    pic.width = 0;
+    pic.height = 0;
+    pic.offset = 0;
+    pic.rgb = NULL;
+
+    if(!image) {
+        printf("readImage open error: %s\n", infile);
+        return pic;
+    }
+
+    fseek(image, 0, SEEK_SET);
+    fread(pic.header, 1, HEADER_SIZE, image);
+    fseek(image, 10, SEEK_SET);
+    fread(&pic.offset, sizeof(pic.offset), 1, image);
+    fseek(image, 4, SEEK_CUR);
+    fread(&pic.width, sizeof(pic.width), 1, image);
+    fread(&pic.height, sizeof(pic.height), 1, image);
+    printf("width: %d, height: %d, offset: %d\n", pic.width, pic.height, pic.offset);
+    fseek(image, HEADER_SIZE, SEEK_SET);
+    
+    pic.rgb = malloc(pic.width * pic.height * RGB_PER_PIXEL);
+    if(!pic.rgb) {
+        printf("pic.rgb malloc failed\n");
+        fclose(image);
+        return pic;
+    }
+
+    int padding = calcPadding(pic.width);
     unsigned char channel[RGB_PER_PIXEL];
     for(i = pic.height - 1; i >= 0; i--) {
         for(j = 0; j < pic.width; j++) {
@@ -58,10 +98,9 @@ void encode(char *infile, char *outfile, char *message) {
     image_t pic = readImage(infile);
 
     int i, j, k;
-    int char_index = 0, bit_index = 0;
+    int char_index = 0, bit_index = 0, bits_hidden = 0;
     int len = strlen(message);
     int total_bits = (len + 1) * BITS_PER_BYTE;
-    int bits_hidden = 0;
 
     for(i = 0; i < pic.height && bits_hidden < total_bits; i++) {
         for(j = 0; j < pic.width && bits_hidden < total_bits; j++) {
@@ -97,12 +136,6 @@ void encode(char *infile, char *outfile, char *message) {
             }
         }
     }
-
-    FILE *image = fopen(infile, "rb");
-    if(image == NULL) {
-        printf("Decode function open error: %s\n", infile);
-        return;
-    }
     
     FILE *newimage = fopen(outfile, "wb");
     if(newimage == NULL) {
@@ -110,12 +143,9 @@ void encode(char *infile, char *outfile, char *message) {
         return;
     }
 
-    char buffer[HEADER_SIZE];
-    fread(buffer, HEADER_SIZE, 1, image);
-    fwrite(buffer, HEADER_SIZE, 1, newimage);
+    fwrite(pic.header, pic.offset, 1, newimage);
     
-    int row_bytes = pic.width * sizeof(rgb_t);
-    int padding = (4 - (row_bytes % 4)) % 4;
+    int padding = calcPadding(pic.width);
     unsigned char pad[RGB_PER_PIXEL] = {0, 0, 0};
     unsigned char channel[RGB_PER_PIXEL];
     for(i = pic.height - 1; i >= 0; i--) {
@@ -124,12 +154,11 @@ void encode(char *infile, char *outfile, char *message) {
             channel[2] = pic.rgb[index].red;
             channel[1] = pic.rgb[index].green;
             channel[0] = pic.rgb[index].blue;
-            fwrite(channel, 1, sizeof(rgb_t), newimage);
+            fwrite(channel, 1, RGB_PER_PIXEL, newimage);
         }
         fwrite(pad, 1, padding, newimage);
     }
 
-    fclose(image);
     fclose(newimage);
     free(pic.rgb);
 }
