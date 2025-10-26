@@ -15,7 +15,7 @@ void decode(char *infile, char *outstring);
 /* Simple check to see if the provided filename ends in ".bmp\0". If it does, all good, if not warn the
 user that there might be errors and ask if they want to proceed. Can also check first two bytes for
 0x42 0x4D as per format standard. Only prompt in interactive mode */
-/* unknown */
+int checkFileType(char *filename);
 
 /* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/
 char *compressMessage(char message[]);
