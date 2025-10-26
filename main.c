@@ -1,6 +1,9 @@
 #include "stegano.h"
 #include <stdio.h>
 
+/* Reads the image header and stores its information */
+image_t readImage(char *infile);
+
 /* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress
 and encode into the image. Outputs a status based on if the image was successfully encoded or not. (Khanh) */
 void encode(char *infile, char *outfile, char *message);
@@ -12,7 +15,7 @@ void decode(char *infile, char *outstring);
 /* Simple check to see if the provided filename ends in ".bmp\0". If it does, all good, if not warn the
 user that there might be errors and ask if they want to proceed. Can also check first two bytes for
 0x42 0x4D as per format standard. Only prompt in interactive mode */
-image_t readImage(char *infile);
+/* unknown */
 
 /* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/
 char *compressMessage(char message[]);
