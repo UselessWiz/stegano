@@ -4,6 +4,14 @@
 #include <string.h>
 
 /*********************************************************/
+
+/* Calculates the number of bytes to pad to align with the
+ * natural padding of .bmp files.
+ * Making sure the number of per each row is a multiple of 4.
+ * 
+ * Parameters:
+ *  - int width: the width of the image (for width of row).
+*/
 int calcPadding(int width) {
     const int alignment = 4;
     int row_bytes = width * RGB_PER_PIXEL;
