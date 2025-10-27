@@ -27,7 +27,7 @@ user that there might be errors and ask if they want to proceed. Can also check 
 0x42 0x4D as per format standard. Only prompt in interactive mode */
 int checkFileType(char filename[]);
 
-/* Takes a string in and returns a compressed version of it (Sam)*/
+/* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/
 char *compressMessage(char message[]);
 
 /* Takes a compressed string in and returns the decompressed version of it (Sam) */
