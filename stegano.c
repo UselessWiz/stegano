@@ -1,6 +1,7 @@
 #include "stegano.h"
 #include <stdio.h>
 
+/**Set all values to 0 in Struct */
 void initialiseQueue(queue_t *q)
 {
     q->front = 0;
@@ -8,24 +9,26 @@ void initialiseQueue(queue_t *q)
     q->count = 0;
 }
 
+//**Check to see if Queue is empty*/
 int isEmpty(queue_t *q)
 {
     if (q->count == 0)
     {
-        return 1;
+        return 1; /**Return 1 if empty */
     }
-    return 0;
+    return 0; //**Return 0 if not empty */
 }
 
+//**Check to see if Queue is full */
 int isFull(queue_t *q)
 {
     if (q->count == MAX_SIZE)
     {
-        return 1;
+        return 1; //**Return 1 if full */
     }
     return 0;
 }
-
+//**Adds a new element to the queue */
 void enqueue(queue_t *q, char value)
 {
     if (isFull(q))
@@ -38,6 +41,7 @@ void enqueue(queue_t *q, char value)
     q->count++;
 }
 
+//**Removes the top element from the queue (First in First out)*/
 void dequeue(queue_t *q)
 {
     if (isEmpty(q))
@@ -49,6 +53,7 @@ void dequeue(queue_t *q)
     q->count--;
 }
 
+/**Gets the top element from the queue */
 char peek(queue_t *q)
 {
     if (isEmpty(q))
@@ -59,6 +64,7 @@ char peek(queue_t *q)
     return q->items[q->front];
 }
 
+/**Prints the whole queue starting at first added element until last added element */
 void printQueue(queue_t *q)
 {
     if (isEmpty(q))

@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
     dequeue(&q);
     printf("Removed element\n");
     printQueue(&q);
+    peek(&q);
 
     return 0;
 }
