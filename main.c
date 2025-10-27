@@ -1,5 +1,6 @@
 #include "stegano.h"
 #include <stdio.h>
+#include <string.h>
 
 /* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress
 and encode into the image. Outputs a status based on if the image was successfully encoded or not. (Khanh) */
@@ -21,9 +22,66 @@ char *compressMessage(char message[]);
 char *decompressMessage(char compressed[]);
 
 /* Using the queue structure, get recently accessed files in order */
-char **getRecentFiles(queue_t *q);
+int writeQueueToFile(queue_t *q, const char *filename)
+{
+    FILE *fptr = fopen(filename, "w");
 
-void printMenu(void);
+    if (fptr == NULL)
+    {
+        printf("ERROR: Could not open '%s' file\n", filename);
+        return 0;
+    }
+
+    if (isEmpty(q))
+    {
+        fclose(fptr);
+        return 1;
+    }
+
+    int i, current = q->front;
+    for (i = 0; i < q->count; i++)
+    {
+        fprintf(fptr, "%s\n", q->items[current]);
+        current = (current + 1) % MAX_SIZE;
+    }
+
+    fclose(fptr);
+    printf("Queue successfully written to '%s' file", filename);
+    return 1;
+}
+
+int readQueueFromFile(queue_t *q, const char *filename)
+{
+    FILE *fptr = fopen(filename, "r");
+
+    if (fptr == NULL)
+    {
+        printf("ERROR: Could not open '%s' file\n", filename);
+        return 0;
+    }
+
+    initialiseQueue(q);
+
+    char buffer[MAX_STRING_LENGTH];
+    while (fgets(buffer, sizeof(buffer), fptr) != NULL)
+    {
+        if (isFull(q))
+        {
+            printf("Warning: Queue full, couldn't load all elements\n");
+            break;
+        }
+
+        buffer[strcspn(buffer, "\n")] = 0;
+
+        enqueue(q, buffer);
+    }
+
+    fclose(fptr);
+    printf("Queue successfully read from '%s' file\n", filename);
+    return 1;
+}
+
+char **getRecentFiles(queue_t *q);
 
 /* Should be run at the start of the program, and processes if the program should run in
 interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
@@ -31,39 +89,4 @@ void processArgs(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
-    printf("--Testing Queue--\n");
-    queue_t q;
-    initialiseQueue(&q);
-
-    enqueue(&q, 'q');
-    printQueue(&q);
-    enqueue(&q, '2');
-    printQueue(&q);
-    enqueue(&q, '3');
-    printQueue(&q);
-    enqueue(&q, '4');
-    printQueue(&q);
-    enqueue(&q, '5');
-    printQueue(&q);
-    enqueue(&q, '6');
-    printQueue(&q);
-    dequeue(&q);
-    printf("Removed element\n");
-    dequeue(&q);
-    printf("Removed element\n");
-    printQueue(&q);
-    enqueue(&q, '7');
-    printQueue(&q);
-    enqueue(&q, '8');
-    printQueue(&q);
-    enqueue(&q, '1');
-    printQueue(&q);
-    enqueue(&q, '2');
-    printQueue(&q);
-    dequeue(&q);
-    printf("Removed element\n");
-    printQueue(&q);
-    peek(&q);
-
-    return 0;
 }
