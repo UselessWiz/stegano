@@ -6,7 +6,7 @@
 /*********************************************************/
 int calcPadding(int width) {
     const int alignment = 4;
-    int row_bytes = width * RGB_PER_PIXEL; /* hello */
+    int row_bytes = width * RGB_PER_PIXEL;
     int remainder = alignment - (row_bytes % alignment);
     int padding = remainder % alignment;
 
