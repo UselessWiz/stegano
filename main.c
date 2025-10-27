@@ -1,34 +1,55 @@
 #include "stegano.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-/* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress 
-and encode into the image. Outputs a status based on if the image was successfully encoded or not. (Khanh) */
-int encode(char infile[], char outfile[], char message[]);
 
-/* Takes an input .bmp file and places the decoded message into the outstring char array. 
-Outputs a status based on if the image was successfully encoded or not. (Khanh) */
-int decode(char infile[], char outstring[]);
 
-/* Simple check to see if the provided filename ends in ".bmp\0". If it does, all good, if not warn the 
-user that there might be errors and ask if they want to proceed. Can also check first two bytes for 
-0x42 0x4D as per format standard. Only prompt in interactive mode */
-int checkFileType(char filename[]);
+int main(int argc, char* argv[]){
 
-/* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/ 
-char* compressMessage(char message[]);
+    char message[256];
+    printf("Enter the message you want to compress: \n");
+    fgets(message, sizeof(message), stdin);
+    message[strcspn(message, "\n")] = '\0';
 
-/* Takes a compressed string in and returns the decompressed version of it (Sam) */
-char* decompressMessage(char compressed[]);
 
-/* Using the queue structure, get recently accessed files in order */
-char** getRecentFiles(queue_t* queue);
+    printf("Original message: %s\n", message);
 
-void printMenu(void);
+    char *compressed = compressMessage(message);
+    
 
-/* Should be run at the start of the program, and processes if the program should run in 
-interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
-void processArgs(int argc, char* argv[]);
+    if(!compressed){
+        printf("Compression failed.\n");
+        return 1;
+    }
 
-int main(int argc, char* argv[])
-{
+    printf("Compressed output: %s\n", compressed);
+    printf("Length before: %zu bytes\n", (strlen(message)));
+    printf("Length after: %zu bytes\n", (strlen(compressed) + 7)/ 8);
+
+    char choice;
+    printf("Do you want to decompress your message? (y,n)\n");
+    scanf(" %c", &choice);
+    if(choice == 'Y' || choice == 'y'){
+        int freqTable[256] = {0};
+        buildFrequencyTable(message, freqTable);
+    
+        int messageLength = strlen(message);
+    
+        char *decompressed = decompressMessage(compressed, freqTable, messageLength);
+        if(!decompressed){
+            printf("Decompression failed!\n");
+            free(compressed);
+            return 1;
+        }
+        printf("Decompressed message: %s\n", decompressed);
+        free(decompressed);
+    } else{
+        printf("Program exited!");
+    }
+
+    free(compressed);
     return 0;
 }
+
+
