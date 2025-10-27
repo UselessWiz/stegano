@@ -351,4 +351,74 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
     freeHuffmanTree(root);
     return output;
 
+char *decompressMessage(char compressed[]);
+
+/* Using the queue structure, get recently accessed files in order */
+int writeQueueToFile(queue_t *q, const char *filename)
+{
+    FILE *fptr = fopen(filename, "w");
+
+    if (fptr == NULL)
+    {
+        printf("ERROR: Could not open '%s' file\n", filename);
+        return 0;
+    }
+
+    if (isEmpty(q))
+    {
+        fclose(fptr);
+        return 1;
+    }
+
+    int i, current = q->front;
+    for (i = 0; i < q->count; i++)
+    {
+        fprintf(fptr, "%s\n", q->items[current]);
+        current = (current + 1) % MAX_SIZE;
+    }
+
+    fclose(fptr);
+    printf("Queue successfully written to '%s' file", filename);
+    return 1;
+}
+
+int readQueueFromFile(queue_t *q, const char *filename)
+{
+    FILE *fptr = fopen(filename, "r");
+
+    if (fptr == NULL)
+    {
+        printf("ERROR: Could not open '%s' file\n", filename);
+        return 0;
+    }
+
+    initialiseQueue(q);
+
+    char buffer[MAX_STRING_LENGTH];
+    while (fgets(buffer, sizeof(buffer), fptr) != NULL)
+    {
+        if (isFull(q))
+        {
+            printf("Warning: Queue full, couldn't load all elements\n");
+            break;
+        }
+
+        buffer[strcspn(buffer, "\n")] = 0;
+
+        enqueue(q, buffer);
+    }
+
+    fclose(fptr);
+    printf("Queue successfully read from '%s' file\n", filename);
+    return 1;
+}
+
+char **getRecentFiles(queue_t *q);
+
+/* Should be run at the start of the program, and processes if the program should run in
+interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
+void processArgs(int argc, char *argv[]);
+
+int main(int argc, char *argv[])
+{
 }
