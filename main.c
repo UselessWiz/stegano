@@ -8,7 +8,8 @@
 /* MENU OPTIONS*/
 #define MENUENCODE 1
 #define MENUDECODE 2
-#define MENUEXIT 3
+#define MENUVIEWRECENT 3
+#define MENUEXIT 4
 
 /* CONST PARAMETERS */
 #define MAXFILELEN 256
@@ -38,18 +39,22 @@ char **getRecentFiles(queue_t *q);
 
 void printMenu(void);
 void printHelp(void);
-int menuEncodeSelected(void);
-int menuDecodeSelected(void);
+int menuEncodeSelected(queue_t* queue_p);
+int menuDecodeSelected(queue_t* queue_p);
+int menuViewRecentFiles(queue_t* queue);
 void stringInput(char prompt[], int maxResponseLen, char response[]);
-int processArgs(int argc, char* argv[]);
+int processArgs(int argc, char* argv[], queue_t* queue);
 
 /* - MAIN FUNCTION - */
 int main(int argc, char* argv[])
 {
+    queue_t queue;
+    initialiseQueue(&queue);
+
     /* If there are any cmd arguments passed, process them and act on them.*/
     if (argc > 1)
     {
-        return processArgs(argc, argv);
+        return processArgs(argc, argv, &queue);
     }
 
     /* Otherwise, run interactively, continuing indefinitely. */
@@ -71,10 +76,13 @@ int main(int argc, char* argv[])
             case MENUEXIT:
                 return 0;
             case MENUENCODE:
-                menuEncodeSelected();
+                menuEncodeSelected(&queue);
                 break;
             case MENUDECODE:
-                menuDecodeSelected();
+                menuDecodeSelected(&queue);
+                break;
+            case MENUVIEWRECENT:
+                menuViewRecentFiles(&queue);
                 break;
             default:
                 printf("Invalid item.");
@@ -96,12 +104,13 @@ Parameters:
     - argc (int): the number of arguments passed.
     - argv (char**): an array of pointers to where those arguments 
     are stored in memory
+    - queue_p (queue_t*): a pointer to the queue used by the application.
 
 Returns (int):
     The status of argument processing. 0 if everything is successful, 
     < 0 if there is an error.
 */
-int processArgs(int argc, char* argv[])
+int processArgs(int argc, char* argv[], queue_t* queue_p)
 {
     /* Help argument */
     if (strcmp(argv[1], "-h") == 0)
@@ -122,6 +131,9 @@ int processArgs(int argc, char* argv[])
             printHelp();
             return INVALIDARGUMENTSERROR;
         }
+
+        /* Add the output file to queue. */
+        enqueue(queue_p, argv[5]);
 
         return encode(argv[3], argv[5], argv[7]);
     }
@@ -147,6 +159,11 @@ int processArgs(int argc, char* argv[])
             FILE* file = fopen(argv[5], "w+");
             fprintf(file, "%s", message);
             fclose(file);
+            enqueue(queue_p, argv[5]); /* Adds the output file to the queue. */
+        }
+        else 
+        {
+            enqueue(queue_p, argv[3]); /* Adds teh input file to the queue. */
         }
 
         return result;
@@ -200,7 +217,8 @@ void printMenu(void)
 {
     printf("1. Encode a Message into an Image\n" \
     "2. Decode a message from an Image\n" \
-    "3. Exit\n");
+    "3. View the most recently used file\n" \
+    "4. Exit\n");
 }
 
 /*
@@ -208,13 +226,13 @@ Processes what should happen when the encode option is selected from the menu
 in interactive mode.
 
 Parameters:
-    - void
+    - queue_p (queue_t*): a pointer to the application's queue.
 
 Returns (int):
     - The status of the corresponding encode function call. 0 if encoding was
     successful, > 0 if not.
 */
-int menuEncodeSelected(void)
+int menuEncodeSelected(queue_t* queue_p)
 {
     char infile[MAXFILELEN];
     stringInput("What input file should we use (this should be a BMP image): "\
@@ -234,6 +252,8 @@ int menuEncodeSelected(void)
         strcpy(outfile, "encoded.bmp");
     }
 
+    enqueue(queue_p, outfile);
+
     return encode(infile, outfile, message);
 }
 
@@ -242,13 +262,13 @@ Processes what should happen when the decode option is selected from the menu
 in interactive mode.
 
 Parameters:
-    - void
+    - queue_p (queue_t*): a pointer to the application's queue.
 
 Returns (int):
     - The status of the corresponding decode function call. 0 if encoding was
     successful, > 0 if not.
 */
-int menuDecodeSelected(void)
+int menuDecodeSelected(queue_t* queue_p)
 {
     char message[MAXMESSAGELEN];
 
@@ -276,7 +296,38 @@ int menuDecodeSelected(void)
         }
     }
 
+    /* If an outfile was requested, queue it. Otherwise, queue the input file. 
+    This corresponds to the most recent file accessed by the application.*/
+    if (outfile[0] != '\0')
+    {
+        enqueue(queue_p, outfile);
+    }
+    else
+    {
+        enqueue(queue_p, infile);
+    }
+
     return result;
+}
+
+/*
+Processes what should happen when the menu option to select recent files is 
+picked.
+
+Parameters:
+    - queue_p (queue_t*): a pointer to the queue used by the application.
+*/
+int menuViewRecentFiles(queue_t* queue_p)
+{
+    if (isEmpty(queue_p))
+    {
+        printf("No Recent Files");
+        return 0;
+    }
+
+    printf("Recent Files:\n");
+    printQueue(queue_p);
+    return 0;
 }
 
 /* 
