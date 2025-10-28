@@ -131,7 +131,7 @@ image_t readImage(char *infile) {
             /* Index for each value of each pixel. */
             int index = i * pic.width + j;
             fread(channel, 1, RGB_PER_PIXEL, image);
-            /* Reassigns as RGB for readibility, since the initial 
+            /* Reassigns as RGB for readability, since the initial 
             BMP order is BGR. */
             pic.rgb[index].red = channel[2];
             pic.rgb[index].green = channel[1];
