@@ -11,7 +11,7 @@
  *  - int width: The width of the image (for width of row).
  * Output:
  *  - int padding: Total bytes needs to pad a row.
-*/
+ */
 int calcPadding(int width) {
     const int alignment = 4;
     int row_bytes = width * RGB_PER_PIXEL;
@@ -33,7 +33,7 @@ int calcPadding(int width) {
  * Output:
  *  - 0: If correct file format.
  *  - 1: If open error or incorrect file format.
-*/
+ */
 int checkFileType(char *filename) {
     FILE *image = fopen(filename, "rb");
     if(!image) {
@@ -77,7 +77,7 @@ int checkFileType(char *filename) {
  * Output:
  *  - image_t pic: Returns the instance pic of image_t struct along
  *                 with its data.
-*/
+ */
 image_t readImage(char *infile) {
     int i, j;
 
@@ -152,7 +152,7 @@ image_t readImage(char *infile) {
  *  - char *message: Pointer to char (string) message.
  * Output:
  *  - Function of type void, no output (except the new image).
-*/
+ */
 void encode(char *infile, char *outfile, char *message) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
@@ -250,7 +250,7 @@ void encode(char *infile, char *outfile, char *message) {
  * Output:
  *  - Function of type void, no output.
  * 
-*/
+ */
 void decode(char *infile, char *outstring) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
