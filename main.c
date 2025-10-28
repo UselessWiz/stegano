@@ -226,9 +226,9 @@ Returns
 */
 void printMenu(void)
 {
-    printf("1. Encode a Message into an Image\n" \
-    "2. Decode a message from an Image\n" \
-    "3. View the most recently used file\n" \
+    printf("1. Encode a Message into an image\n" \
+    "2. Decode a message from an image\n" \
+    "3. View recent files\n" \
     "4. Exit\n");
 }
 
@@ -264,6 +264,8 @@ int menuEncodeSelected(queue_t* queue_p)
     }
 
     enqueue(queue_p, outfile);
+
+    printf("\n");
 
     return encode(infile, outfile, message);
 }
@@ -318,6 +320,8 @@ int menuDecodeSelected(queue_t* queue_p)
         enqueue(queue_p, infile);
     }
 
+    printf("\n");
+
     return result;
 }
 
@@ -338,6 +342,7 @@ int menuViewRecentFiles(queue_t* queue_p)
 
     printf("Recent Files:\n");
     printQueue(queue_p);
+    printf("\n");
     return 0;
 }
 
@@ -412,7 +417,6 @@ int writeQueueToFile(queue_t *q, const char *filename)
     }
 
     fclose(fptr);
-    printf("Queue successfully written to '%s' file", filename);
     return 0;
 }
 
