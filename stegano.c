@@ -77,7 +77,7 @@ int checkFileType(char *filename) {
  *  - char *infile: Pointer to char infile, signifies the input file
  *                  to read.
  * Output:
- *  - image_t pic: Return the instance pic of image_t struct along
+ *  - image_t pic: Returns the instance pic of image_t struct along
  *                 with its data.
 */
 image_t readImage(char *infile) {
@@ -99,14 +99,15 @@ image_t readImage(char *infile) {
 
     /* Seeks specific postions in the image to find the offset, width, 
     height, and header data. */
-    fseek(image, 0, SEEK_SET);
+    fseek(image, START_BYTE, SEEK_SET);
     fread(pic.header, 1, HEADER_SIZE, image);
-    fseek(image, 10, SEEK_SET);
+    fseek(image, OFFSET_BYTE, SEEK_SET);
     fread(&pic.offset, sizeof(pic.offset), 1, image);
-    fseek(image, 4, SEEK_CUR);
+    fseek(image, WIDTH_BYTE, SEEK_SET);
     fread(&pic.width, sizeof(pic.width), 1, image);
-    fread(&pic.height, sizeof(pic.height), 1, image);
-    printf("width: %d, height: %d, offset: %d\n", pic.width, pic.height, pic.offset);
+    fseek(image, HEIGHT_BYTE, SEEK_SET);
+    fread(&pic.height, sizeof(pic.height), 1, image); 
+    
     /* Skips to byte 54 (where the RGB sequence starts) to store RGB
     values of every pixel. */
     fseek(image, HEADER_SIZE, SEEK_SET);
@@ -119,7 +120,7 @@ image_t readImage(char *infile) {
         return pic;
     }
 
-    /* Calls to calcPadding function. */
+    /* Calls to calcPadding function with local int padding. */
     int padding = calcPadding(pic.width);
     /* Temporary array to store the RGB values. */
     unsigned char channel[RGB_PER_PIXEL];
@@ -130,7 +131,7 @@ image_t readImage(char *infile) {
             /* Index for each value of each pixel. */
             int index = i * pic.width + j;
             fread(channel, 1, RGB_PER_PIXEL, image);
-            /* Ressigns as RGB for readibility, since the initial 
+            /* Reassigns as RGB for readibility, since the initial 
             BMP order is BGR. */
             pic.rgb[index].red = channel[2];
             pic.rgb[index].green = channel[1];
@@ -144,76 +145,125 @@ image_t readImage(char *infile) {
     return pic;
 }
 
+/* Encode the message into each color value of the pixels and
+ * creates a new image with the altered pixels.
+ * 
+ * Input:
+ *  - char *infile: Pointer to char infile, signifies the input file
+ *                  to read.
+ *  - char *outfile: Pointer to char outfile, signifies the output file
+ *                   to write.
+ * Output:
+ *  - Function of type void, no actual output except the new image.
+*/
 void encode(char *infile, char *outfile, char *message) {
+    /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
 
+    /* Initialises variables. */
     int i, j, k;
+    /* Index of character of the message, index of the character's bit and bits hidden. */
     int char_index = 0, bit_index = 0, bits_hidden = 0;
     int len = strlen(message);
+    /* +1 to account for null terminator. */
     int total_bits = (len + 1) * BITS_PER_BYTE;
 
+    /* Loops through the image dimensions until all bits are hidden. */
     for(i = 0; i < pic.height && bits_hidden < total_bits; i++) {
         for(j = 0; j < pic.width && bits_hidden < total_bits; j++) {
+            /* Index for each value of each pixel. */
             int index = i * pic.width + j;
+            /* Temporary pointer to char channel to process the RGB values 
+            easier. */
             unsigned char *channels[RGB_PER_PIXEL] = {
                 &pic.rgb[index].red,
                 &pic.rgb[index].green,
                 &pic.rgb[index].blue
             };
+            /* Loops through 3 color values of a pixel until all bits are hidden. */
             for(k = 0; k < RGB_PER_PIXEL && bits_hidden < total_bits; k++) {
                 unsigned char current_char;
                 if(char_index < len) {
                     current_char = message[char_index];
                 } else {
+                    /* Accounts for null terminator since len used strlen. */
                     current_char = '\0';
                 }
 
+                /* Uses bitwise operator & (AND) to compare last bit of character against 
+                number 1 (binary of 00000001) to get the bit. */
                 int bit = (current_char >> (7 - bit_index)) & 1;
+                /* For bit of 1, changes the LSB of the RGB value to 1 using 
+                bitwise operator | (OR), changing the RGB value to odd. */
+                if(bit == 1) *channels[k] |= 1;
+                /* For bit of 0, changes the LSB of the RGB value to 0 using 
+                bitwise operator & (AND) and compares to ~1 (NOT), changing 
+                the RGB value to even. */
+                else *channels[k] &= ~1;
 
-                if(bit == 1) {
-                    *channels[k] |= 1;
-                } else {
-                    *channels[k] &= ~1;
-                }
-
+                /* Increments bits_hidden and bit_index after each RGB assignment. */
                 bits_hidden++;
                 bit_index++;
 
+                /* Assign bit_index to 0 every 8-bit cycle. */
                 if(bit_index == BITS_PER_BYTE) {
                     bit_index = 0;
+                    /* Increments char_index for each character hidden. */
                     char_index++;
                 }
             }
         }
     }
     
+    /* Creates new image using fopen "wb". */
     FILE *newimage = fopen(outfile, "wb");
     if(newimage == NULL) {
         printf("Encode function open error: %s\n", outfile);
         return;
     }
 
+    /* Write the header data from old image to new image. */
     fwrite(pic.header, pic.offset, 1, newimage);
     
+    /* Calls to calcPadding function with local int padding. */
     int padding = calcPadding(pic.width);
+    /* Empty padding char. */
     unsigned char pad[RGB_PER_PIXEL] = {0, 0, 0};
+    /* Temporary array to store the RGB values. */
     unsigned char channel[RGB_PER_PIXEL];
+    /* Loops bottom to top, left to right. */
     for(i = pic.height - 1; i >= 0; i--) {
         for(j = 0; j < pic.width; j++) {
+            /* Index for each value of each pixel. */
             int index = i * pic.width + j;
+            /* Assigns RGB value to temporary char channel. */
             channel[2] = pic.rgb[index].red;
             channel[1] = pic.rgb[index].green;
             channel[0] = pic.rgb[index].blue;
+            /* Write the new RGB values into new image. */
             fwrite(channel, 1, RGB_PER_PIXEL, newimage);
         }
+        /* Writes padding after each row. */
         fwrite(pad, 1, padding, newimage);
     }
 
     fclose(newimage);
+    /* Free allocated memory. */
     free(pic.rgb);
 }
 
+/* 
+ * 
+ * 
+ * 
+ * Input:
+ *  - 
+ * Output:
+ *  - 
+ * 
+*/
 void decode(char *infile, char *outstring) {
+    /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
 
     int i, j, k;

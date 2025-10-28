@@ -12,6 +12,11 @@
 #define BITS_PER_BYTE 8
 #define RGB_PER_PIXEL 3
 
+#define START_BYTE 0
+#define OFFSET_BYTE 10
+#define WIDTH_BYTE 18
+#define HEIGHT_BYTE 22
+
 #define MAX_MESSAGE_SIZE 256
 
 /***** Encode, decode *****/
