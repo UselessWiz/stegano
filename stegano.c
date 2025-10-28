@@ -27,7 +27,8 @@ int calcPadding(int width) {
 
 /* Checks whether the file is in BMP format.
  * Opens the .bmp file, reads the first 14 bytes in binary and
- * saves them to FILEHEADER struct and IMAGEHEADER struct.
+ * saves them to fileheader_t struct and imageheader_t struct.
+ * 
  * Input:
  *  - char *filename: Pointer to char of filename, which is the
  *                    string that contains the file name.
@@ -69,6 +70,22 @@ int checkFileType(char *filename) {
     return 0;
 }
 
+/* Reads the image in binary and store its information in image_t
+ * struct.
+ * Assigns the picture variables to 0 to return the empty
+ * image if the function cannot open it.
+ * Seeks specific postions in the image to find the offset, width, 
+ * height, and header data.
+ * Skips to byte 54 (where the RGB sequence starts) to store RGB
+ * values of every pixel.
+ * 
+ * Input:
+ *  - char *infile: Pointer to char infile, signifies the input file
+ *                  to read.
+ * Output:
+ *  - image_t pic: Return the instance pic of image_t struct along
+ *                 with its data.
+*/
 image_t readImage(char *infile) {
     int i, j;
 
