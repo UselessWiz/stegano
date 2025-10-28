@@ -1,14 +1,53 @@
 #include "stegano.h"
-#include <stdlib.h>
+#include <stdlib.h> /*malloc(), free()*/
+#include <string.h> /*strdup()*/
 
-static void buildFrequencyTable(const char message[], int freqTable[256]){
+/*
+Builds a frequency table of all characters in the given message.
+
+Parameters:
+message (const char[]): 
+- input string whose character frequencies are to be counted.
+
+freqTable (int[256]): 
+- An integer array used to store the frequency count of each possible characters (0-255). 
+- 256 including the null terminator.
+- array should be initialized to zero before calling this function.
+
+Returns (void):
+- This function does not return a value.
+- The resulting frequency counts are stored in the provided freqTable array.
+*/
+void buildFrequencyTable(const char message[], int freqTable[256]){
     /*Create a frequency table*/
     int i;
     for(i = 0; message[i] != '\0'; i++){
         freqTable[(unsigned char)message[i]]++;
     }
 }
-static void createSortedNodeList(const int freqTable[256], huffmanNode_t* nodeList[256], int *outSize){
+
+/*
+Creates a sorted list of huffman tree leaf nodes based on character frequencies.
+
+Parameters:
+freqTable (const int[256]):
+- An integer array containing the frequency of each possible character, 
+  where the index corresponds to the character's ASCII value. 
+
+nodeList (huffmanNode_t*[256]):
+- An array of pointers where the function will store the addresses of dynamically allocated huffman nodes,
+  each node represents a character that appears in the message
+
+outSize (int*):
+- A pointer to an integer where the function will store the number of nodes created and inserted into nodeList.
+- If memory allocation fails, this value is set to -1.
+
+Returns (void):
+- This function does not return a value.
+- The sorted list of nodes is stored in nodeList,
+  and the count of nodes is stored in the integer pointed to by outSize.
+*/
+void createSortedNodeList(const int freqTable[256], huffmanNode_t* nodeList[256], int *outSize){
     /*Create nodes for characters that appear*/
     int size = 0;
     int i;
@@ -38,7 +77,24 @@ static void createSortedNodeList(const int freqTable[256], huffmanNode_t* nodeLi
     *outSize = size;
 }
 
-static huffmanNode_t* buildHuffmanTree(huffmanNode_t* nodeList[256], int size){
+/*
+Builds a Huffman tree from a sorted list of leaf nodes.
+
+Parameters:
+
+nodeList (huffmanNode_t*[256]):
+- An array of pointers to huffman nodes, each representing a character and its frequency.
+- Sorted in ascending order based on frequency.
+- The two smallest frequency nodes will repeatedly merge until a single root node remains.
+
+size (int):
+- The number of nodes currently in nodeList.
+
+Returns (huffmanNode_t*):
+- A pointer to the root node of the constructed Huffman tree.
+- Returns NULL if memory allocation fails or if the input size is zero.
+*/
+huffmanNode_t* buildHuffmanTree(huffmanNode_t* nodeList[256], int size){
     if(size == 0){
         return NULL;
     }
@@ -83,7 +139,20 @@ static huffmanNode_t* buildHuffmanTree(huffmanNode_t* nodeList[256], int size){
     return nodeList[0];
 }
 
-static void freeHuffmanTree(huffmanNode_t* root){
+/*
+Recursively frees all memory associated with the Huffman tree.
+
+Parameters:
+
+root (huffmanNode_t*):
+- A pointer to the root node of the Huffman tree to be freed.
+- May be NULL, in which case the function does nothing.
+
+Returns (void):
+- This function does not return a value.
+- All dynamically allocated nodes within the tree are freed from memory.
+*/
+void freeHuffmanTree(huffmanNode_t* root){
     if(!root){
         return;
     }
@@ -93,7 +162,36 @@ static void freeHuffmanTree(huffmanNode_t* root){
     free(root);
 }
 
-static void buildCode(huffmanNode_t* node, char *path, int depth, char *codeTable[256], int codeLen[256]){
+/*
+Recursively generates huffman codes for each character in the huffman tree.
+
+Parameters:
+
+node (huffmanNode_t*):
+- A pointer to the current node in the Huffman tree.
+- The function traverses this node and its children to generate binary codes.
+
+path (char*):
+- A character array that stores the current binary path during taversal.\
+- Each left branch appends '0' and each right branch appends '1'.
+
+depth (int):
+- The current depth of traversal within the huffman tree.
+- Used to track the length of the binary code being generated.
+
+codeTable (char*[256]):
+- An array of string pointers used to store the generated binary codes for each character indexed by ASCII value.
+- Memory of each code is dynamically allocated using strdup().
+
+codeLen (int[256]):
+- An interger array storing the length of each generated code,
+  where the index corresponds to the character's ASCII value.
+
+Returns (void):
+- This function does not return a value.
+- The resulting huffman codes and their lengths are stored in codeTable and codeLen respectively.
+*/
+void buildCode(huffmanNode_t* node, char *path, int depth, char *codeTable[256], int codeLen[256]){
     if(!node){
         return;
     }
@@ -119,6 +217,25 @@ static void buildCode(huffmanNode_t* node, char *path, int depth, char *codeTabl
     path[depth] = '1';
     buildCode(node->right, path, depth + 1, codeTable, codeLen);
 }
+
+/*
+Compresses a given message using huffman encoding and returns the encoded bitstring.
+
+Parameters:
+message (char[]):
+- the input string to be compressed.
+
+Returns (char*):
+- A dynamically allocated string containing the compressed message 
+  represented as a sequence of '0's and '1's.
+- Returns NULL if compression fails due to memory allocation issues or other errors.
+
+Notes:
+- The caller is responsible for freeing the returned string.
+- This function internally builds the frequency table, 
+  constructs the huffman tree, and generates the huffman codes, 
+  and encodes the message.
+*/
 
 char* compressMessage(char message[]){
     /*Build frequency table from input*/
@@ -146,6 +263,7 @@ char* compressMessage(char message[]){
     char path[256] = {0};
     buildCode(root, path, 0, codes, codeLen);
 
+    /*Calculate total number of bits required for the compressed output*/
     int totalBits = 0;
     int i;
     for(i = 0; i < 256; i++){
@@ -154,6 +272,7 @@ char* compressMessage(char message[]){
         }
     }
 
+    /*Allocate memory for compressed output string*/
     char *output = malloc(totalBits + 1);
     if(!output){
         for(i = 0; i < 256; i++){
@@ -163,6 +282,7 @@ char* compressMessage(char message[]){
         return NULL;
     }
 
+    /*Encode message using generated huffman codes*/
     char *writePos = output;
     const unsigned char *inputPtr;
 
@@ -173,6 +293,7 @@ char* compressMessage(char message[]){
             continue;
         }
 
+        /*Write each bit ('0' or '1') of the current code to output*/
         const char *bitPtr;
         for(bitPtr = currentCode; *bitPtr; bitPtr++){
             *writePos++ = *bitPtr;
@@ -186,11 +307,39 @@ char* compressMessage(char message[]){
     freeHuffmanTree(root);
 
     return output;
-
 }
 
+/*
+Decompresses a huffman encoded bitstring back to its original message.
 
+Parameters:
+compressed (const char[]):
+- The huffman encoded bitstring consisting of '0's and '1's characters.
+
+freqTable (const int[256]):
+- An integer frequency table that was originally used to build the huffman tree
+  during compression. Each index corresponds to a character's ASCII value
+  and its frequency count.
+
+messageLength (int):
+- The expected number of characters in the decompressed message.
+- Must be non-negative.
+
+Returns (char*):
+- A dynamically allocated string containing the decompressed original message.
+- Returns NULL if:
+  - the input parameters are invalid
+  - memory allocation fails
+  - the huffman tree cannot be reconstructed
+  - the bitstring does not decode correctly to the expected message length.
+
+Notes:
+- The caller is responsible for freeing the returned memory.
+- This function reconstructs the huffman tree using the frequency table,
+  then traverses it according to each bit in the compressed input.
+*/
 char* decompressMessage(const char compressed[], const int freqTable[256], int messageLength){
+    /*Validate input parameters*/
     if(!compressed || !freqTable || messageLength < 0){
         return NULL;
     }
@@ -205,6 +354,7 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
         return NULL;
     }
 
+    /*Recreate huffman leaf nodes from the frequency table*/
     huffmanNode_t *nodeList[256];
     int size = 0;
     createSortedNodeList(freqTable, nodeList, &size);
@@ -213,18 +363,21 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
         return NULL;
     }
 
+    /*Rebuild the huffman tree from the sorted node list*/
     huffmanNode_t *root = buildHuffmanTree(nodeList, size);
 
     if(!root && messageLength > 0){
         return NULL;
     }
 
+    /*Allocate memory for the decompressed output string*/
     char *output = malloc((int)messageLength + 1);
     if(!output){
         freeHuffmanTree(root);
         return NULL;
     }
 
+    /*Handle single-node tree case*/
     if(!root->left && !root->right){
         int i;
         for(i = 0; i < messageLength; i++){
@@ -236,6 +389,7 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
         return output;
     }
 
+    /*Traverse the huffman tree to decode each bit*/
     int decodedCount = 0;
     huffmanNode_t *currentNode = root;
 
@@ -260,6 +414,7 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
         }
     }
 
+    /*Verify that the number of decoded characters matches message length*/
     if(decodedCount != messageLength){
         free(output);
         freeHuffmanTree(root);
