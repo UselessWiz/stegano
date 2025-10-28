@@ -4,6 +4,7 @@
 
 /* ERROR CODES */
 #define INVALIDARGUMENTSERROR -1
+#define FILENOTFOUNDERROR -2
 
 /* MENU OPTIONS*/
 #define MENUENCODE 1
@@ -14,6 +15,8 @@
 /* CONST PARAMETERS */
 #define MAXFILELEN 256
 #define MAXMESSAGELEN 256
+
+#define DATAFILE "stegano.dat"
 
 /* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress
 and encode into the image. Outputs a status based on if the image was successfully encoded or not. (Khanh) */
@@ -44,12 +47,18 @@ int menuDecodeSelected(queue_t* queue_p);
 int menuViewRecentFiles(queue_t* queue);
 void stringInput(char prompt[], int maxResponseLen, char response[]);
 int processArgs(int argc, char* argv[], queue_t* queue);
+int readQueueFromFile(queue_t *q, const char *filename);
+int writeQueueToFile(queue_t *q, const char *filename);
 
 /* - MAIN FUNCTION - */
 int main(int argc, char* argv[])
 {
+    /* If no recently accessed file list exists, use a new queue.*/
     queue_t queue;
-    initialiseQueue(&queue);
+    if (readQueueFromFile(&queue, DATAFILE) == FILENOTFOUNDERROR)
+    {
+        initialiseQueue(&queue); 
+    }
 
     /* If there are any cmd arguments passed, process them and act on them.*/
     if (argc > 1)
@@ -74,6 +83,8 @@ int main(int argc, char* argv[])
         switch (input)
         {
             case MENUEXIT:
+                /* Save recently accessed files. */
+                writeQueueToFile(&queue, DATAFILE);
                 return 0;
             case MENUENCODE:
                 menuEncodeSelected(&queue);
@@ -277,8 +288,8 @@ int menuDecodeSelected(queue_t* queue_p)
         , MAXFILELEN, infile);
 
     char outfile[MAXFILELEN];
-    stringInput("What should we call the new file (leave blank to display \
-        message in the terminal): ", MAXFILELEN, outfile);
+    stringInput("What should we call the new file (leave blank to display " \
+        "message in the terminal): ", MAXFILELEN, outfile);
 
     int result = decode(infile, message);
 
@@ -321,7 +332,7 @@ int menuViewRecentFiles(queue_t* queue_p)
 {
     if (isEmpty(queue_p))
     {
-        printf("No Recent Files");
+        printf("No Recent Files.\n");
         return 0;
     }
 
@@ -336,8 +347,8 @@ Dummy function
 int encode(char infile[], char outfile[], char message[])
 {
     printf("[DEBUG] Encoding\n");
-    printf("[DEBUG] INPUTFILE: %s\n[DEBUG] OUTPUTFILE: %s\n[DEBUG] MESSAGE: \
-        %s\n", infile, outfile, message);
+    printf("[DEBUG] INPUTFILE: %s\n[DEBUG] OUTPUTFILE: %s\n[DEBUG] MESSAGE: "\
+        "%s\n", infile, outfile, message);
     return 0;
 }
 
@@ -376,14 +387,15 @@ void stringInput(char prompt[], int maxResponseLen, char response[])
         char* nl = strrchr(response, '\n');
         *nl = '\0';
     }
+}
+
 int writeQueueToFile(queue_t *q, const char *filename)
 {
     FILE *fptr = fopen(filename, "w");
 
     if (fptr == NULL)
     {
-        printf("ERROR: Could not open '%s' file\n", filename);
-        return 0;
+        return FILENOTFOUNDERROR;
     }
 
     if (isEmpty(q))
@@ -401,7 +413,7 @@ int writeQueueToFile(queue_t *q, const char *filename)
 
     fclose(fptr);
     printf("Queue successfully written to '%s' file", filename);
-    return 1;
+    return 0;
 }
 
 int readQueueFromFile(queue_t *q, const char *filename)
@@ -410,18 +422,16 @@ int readQueueFromFile(queue_t *q, const char *filename)
 
     if (fptr == NULL)
     {
-        printf("ERROR: Could not open '%s' file\n", filename);
-        return 0;
+        return FILENOTFOUNDERROR;
     }
 
     initialiseQueue(q);
 
-    char buffer[MAX_STRING_LENGTH];
+    char buffer[MAXFILELEN];
     while (fgets(buffer, sizeof(buffer), fptr) != NULL)
     {
         if (isFull(q))
         {
-            printf("Warning: Queue full, couldn't load all elements\n");
             break;
         }
 
@@ -431,16 +441,5 @@ int readQueueFromFile(queue_t *q, const char *filename)
     }
 
     fclose(fptr);
-    printf("Queue successfully read from '%s' file\n", filename);
-    return 1;
-}
-
-char **getRecentFiles(queue_t *q);
-
-/* Should be run at the start of the program, and processes if the program should run in
-interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
-void processArgs(int argc, char *argv[]);
-
-int main(int argc, char *argv[])
-{
+    return 0;
 }
