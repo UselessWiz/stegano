@@ -3,24 +3,38 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*********************************************************/
+/********************************************************************/
 
 /* Calculates the number of bytes to pad to align with the
  * natural padding of .bmp files.
  * Making sure the number of per each row is a multiple of 4.
  * 
- * Parameters:
- *  - int width: the width of the image (for width of row).
+ * Input:
+ *  - int width: The width of the image (for width of row).
+ * Output:
+ *  - int padding: Total bytes needs to pad a row.
 */
 int calcPadding(int width) {
     const int alignment = 4;
     int row_bytes = width * RGB_PER_PIXEL;
+    /* How many bytes the row needs to be a multiple of 4 */
     int remainder = alignment - (row_bytes % alignment);
+    /* Checks for already aligned (e.g. 4 % 4 = 0) */
     int padding = remainder % alignment;
 
     return padding;
 }
 
+/* Checks whether the file is in BMP format.
+ * Opens the .bmp file, reads the first 14 bytes in binary and
+ * saves them to FILEHEADER struct and IMAGEHEADER struct.
+ * Input:
+ *  - char *filename: Pointer to char of filename, which is the
+ *                    string that contains the file name.
+ * Output:
+ *  - 0: If correct file format.
+ *  - 1: If open error or incorrect file format.
+*/
 int checkFileType(char *filename) {
     FILE *image = fopen(filename, "rb");
     if(!image) {
@@ -38,11 +52,14 @@ int checkFileType(char *filename) {
     fread(&fh.bfOffBits, sizeof(fh.bfOffBits), 1, image);
     fread(&ih, sizeof(imageheader_t), 1, image);
 
+    /* Checks the first 2 indexes (bytes) of char bfType for 'B' or 'M' */
     if((fh.bfType[0] != 'B') | (fh.bfType[1] != 'M')) {
         printf("File not .bmp\n");
         return 1;
     }
 
+    /* Checks for correct header size of 40 bytes, correct compression type of 0, 
+    and correct color format of 24-bit (RGB for each pixel) */
     if((ih.biSize != 40) || (ih.biCompression != 0) || (ih.biBitCount != 24)) {
         fclose(image);
         printf("Image header error\n");
@@ -210,7 +227,7 @@ void decode(char *infile, char *outstring) {
     outstring[char_index] = '\0';
     free(pic.rgb);
 }
-/*********************************************************/
+/********************************************************************/
 
 void initialiseQueue(queue_t *q)
 {
