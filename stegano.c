@@ -17,17 +17,15 @@
 int calcPadding(int width) {
     const int alignment = 4;
     int row_bytes = width * RGB_PER_PIXEL;
-    /* How many bytes the row needs to be a multiple of 4 */
+    /* How many bytes the row needs to be a multiple of 4. */
     int remainder = alignment - (row_bytes % alignment);
-    /* Checks for already aligned (e.g. 4 % 4 = 0) */
+    /* Checks for already aligned (e.g. 4 % 4 = 0). */
     int padding = remainder % alignment;
 
     return padding;
 }
 
 /* Checks whether the file is in BMP format.
- * Opens the .bmp file, reads the first 14 bytes in binary and
- * saves them to fileheader_t struct and imageheader_t struct.
  * 
  * Input:
  *  - char *filename: Pointer to char of filename, which is the
@@ -43,6 +41,8 @@ int checkFileType(char *filename) {
         return 1;
     }
 
+    /* Opens the .bmp file, reads the first 14 bytes in binary and
+    saves them to fileheader_t struct and imageheader_t struct. */
     fileheader_t fh;
     imageheader_t ih;
 
@@ -53,14 +53,14 @@ int checkFileType(char *filename) {
     fread(&fh.bfOffBits, sizeof(fh.bfOffBits), 1, image);
     fread(&ih, sizeof(imageheader_t), 1, image);
 
-    /* Checks the first 2 indexes (bytes) of char bfType for 'B' or 'M' */
+    /* Checks the first 2 indexes (bytes) of char bfType for 'B' or 'M'. */
     if((fh.bfType[0] != 'B') | (fh.bfType[1] != 'M')) {
         printf("File not .bmp\n");
         return 1;
     }
 
     /* Checks for correct header size of 40 bytes, correct compression type of 0, 
-    and correct color format of 24-bit (RGB for each pixel) */
+    and correct color format of 24-bit (RGB for each pixel). */
     if((ih.biSize != 40) || (ih.biCompression != 0) || (ih.biBitCount != 24)) {
         fclose(image);
         printf("Image header error\n");
@@ -72,12 +72,6 @@ int checkFileType(char *filename) {
 
 /* Reads the image in binary and store its information in image_t
  * struct.
- * Assigns the picture variables to 0 to return the empty
- * image if the function cannot open it.
- * Seeks specific postions in the image to find the offset, width, 
- * height, and header data.
- * Skips to byte 54 (where the RGB sequence starts) to store RGB
- * values of every pixel.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
@@ -90,6 +84,8 @@ image_t readImage(char *infile) {
     int i, j;
 
     FILE *image = fopen(infile, "rb");
+    /* Assigns the picture variables to 0 to return the empty
+    image if the function cannot open it */
     image_t pic;
     pic.width = 0;
     pic.height = 0;
@@ -101,6 +97,8 @@ image_t readImage(char *infile) {
         return pic;
     }
 
+    /* Seeks specific postions in the image to find the offset, width, 
+    height, and header data. */
     fseek(image, 0, SEEK_SET);
     fread(pic.header, 1, HEADER_SIZE, image);
     fseek(image, 10, SEEK_SET);
@@ -109,8 +107,11 @@ image_t readImage(char *infile) {
     fread(&pic.width, sizeof(pic.width), 1, image);
     fread(&pic.height, sizeof(pic.height), 1, image);
     printf("width: %d, height: %d, offset: %d\n", pic.width, pic.height, pic.offset);
+    /* Skips to byte 54 (where the RGB sequence starts) to store RGB
+    values of every pixel. */
     fseek(image, HEADER_SIZE, SEEK_SET);
     
+    /* Allocates memory for total RGB values. */
     pic.rgb = malloc(pic.width * pic.height * RGB_PER_PIXEL);
     if(!pic.rgb) {
         printf("pic.rgb malloc failed\n");
@@ -118,17 +119,24 @@ image_t readImage(char *infile) {
         return pic;
     }
 
+    /* Calls to calcPadding function. */
     int padding = calcPadding(pic.width);
+    /* Temporary array to store the RGB values. */
     unsigned char channel[RGB_PER_PIXEL];
+    /* Loops and read the RGB values from (height - 1) as BMP files 
+    store information from bottom to top, left to right. */
     for(i = pic.height - 1; i >= 0; i--) {
         for(j = 0; j < pic.width; j++) {
+            /* Index for each value of each pixel. */
             int index = i * pic.width + j;
             fread(channel, 1, RGB_PER_PIXEL, image);
-            /* BGR order */
+            /* Ressigns as RGB for readibility, since the initial 
+            BMP order is BGR. */
             pic.rgb[index].red = channel[2];
             pic.rgb[index].green = channel[1];
             pic.rgb[index].blue = channel[0];
         }
+        /* Set cursor position to skip the padding. */
         fseek(image, padding, SEEK_CUR);
     }
     
