@@ -18,28 +18,6 @@
 
 #define DATAFILE "stegano.dat"
 
-/* Reads the image header and stores its information */
-image_t readImage(char *infile);
-
-/* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress
-and encode into the image. Outputs a status based on if the image was successfully encoded or not. (Khanh) */
-void encode(char *infile, char *outfile, char *message);
-
-/* Takes an input .bmp file and places the decoded message into the outstring char array.
-Outputs a status based on if the image was successfully encoded or not. (Khanh) */
-void decode(char *infile, char *outstring);
-
-/* Simple check to see if the provided filename ends in ".bmp\0". If it does, all good, if not warn the
-user that there might be errors and ask if they want to proceed. Can also check first two bytes for
-0x42 0x4D as per format standard. Only prompt in interactive mode */
-int checkFileType(char *filename);
-
-/* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/
-char *compressMessage(char message[]);
-
-/* Takes a compressed string in and returns the decompressed version of it (Sam) */
-char *decompressMessage(char compressed[]);
-
 /* Using the queue structure, get recently accessed files in order */
 char **getRecentFiles(queue_t *q);
 
@@ -149,7 +127,8 @@ int processArgs(int argc, char* argv[], queue_t* queue_p)
         /* Add the output file to queue. */
         enqueue(queue_p, argv[5]);
 
-        return encode(argv[3], argv[5], argv[7]);
+        encode(argv[3], argv[5], argv[7]);
+        return 0;
     }
 
     /* stegano -d -i input.bmp [-o fileOutput.txt]*/
@@ -165,10 +144,10 @@ int processArgs(int argc, char* argv[], queue_t* queue_p)
         }
 
         char message[MAXMESSAGELEN];
-        int result = decode(argv[3], message);
+        decode(argv[3], message);
 
         /* Assume outfile was passed */
-        if (result == 0 && argc >= 5)
+        if (argc >= 5)
         {
             FILE* file = fopen(argv[5], "w+");
             fprintf(file, "%s", message);
@@ -180,7 +159,7 @@ int processArgs(int argc, char* argv[], queue_t* queue_p)
             enqueue(queue_p, argv[3]); /* Adds teh input file to the queue. */
         }
 
-        return result;
+        return 0;
     }
 
     /* If you make it here, assume that the arguments weren't valid. */
@@ -270,7 +249,8 @@ int menuEncodeSelected(queue_t* queue_p)
 
     printf("\n");
 
-    return encode(infile, outfile, message);
+    encode(infile, outfile, message);
+    return 0;
 }
 
 /*
@@ -296,20 +276,17 @@ int menuDecodeSelected(queue_t* queue_p)
     stringInput("What should we call the new file (leave blank to display " \
         "message in the terminal): ", MAXFILELEN, outfile);
 
-    int result = decode(infile, message);
+    decode(infile, message);
 
-    if (result == 0)
+    if (outfile[0] == '\0')
     {
-        if (outfile[0] == '\0')
-        {
-            printf("Resulting Message: %s\n", message);
-        }
-        else 
-        {
-            FILE* file = fopen(outfile, "w+");
-            fprintf(file, "%s", message);
-            fclose(file);
-        }
+        printf("Resulting Message: %s\n", message);
+    }
+    else 
+    {
+        FILE* file = fopen(outfile, "w+");
+        fprintf(file, "%s", message);
+        fclose(file);
     }
 
     /* If an outfile was requested, queue it. Otherwise, queue the input file. 
@@ -325,7 +302,7 @@ int menuDecodeSelected(queue_t* queue_p)
 
     printf("\n");
 
-    return result;
+    return 0;
 }
 
 /*
@@ -346,28 +323,6 @@ int menuViewRecentFiles(queue_t* queue_p)
     printf("Recent Files:\n");
     printQueue(queue_p);
     printf("\n");
-    return 0;
-}
-
-/* 
-Dummy function
-*/
-int encode(char infile[], char outfile[], char message[])
-{
-    printf("[DEBUG] Encoding\n");
-    printf("[DEBUG] INPUTFILE: %s\n[DEBUG] OUTPUTFILE: %s\n[DEBUG] MESSAGE: "\
-        "%s\n", infile, outfile, message);
-    return 0;
-}
-
-/* 
-Dummy function
-*/
-int decode(char infile[], char outstring[])
-{
-    printf("[DEBUG] Decoding\n");
-    strcpy(outstring, "Decoding functionality isn't fully functional yet...");
-    printf("[DEBUG] MESSAGE: %s\n", outstring);
     return 0;
 }
 

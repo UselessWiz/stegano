@@ -694,7 +694,8 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
     int decodedCount = 0;
     huffmanNode_t *currentNode = root;
 
-    for(const char *ptr = compressed; *ptr && decodedCount < messageLength; ptr++){
+    const char *ptr;
+    for (ptr = compressed; *ptr && decodedCount < messageLength; ptr++){
         if(*ptr == '0'){
             currentNode = currentNode->left;
         } else if(*ptr == '1'){
@@ -728,7 +729,7 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
 
 }
 
-/**Set all values to 0 in Struct */
+/*Set all values to 0 in Struct */
 void initialiseQueue(queue_t *q)
 {
     q->front = 0;
@@ -736,26 +737,27 @@ void initialiseQueue(queue_t *q)
     q->count = 0;
 }
 
-//**Check to see if Queue is empty*/
+/*Check to see if Queue is empty*/
 int isEmpty(queue_t *q)
 {
     if (q->count == 0)
     {
-        return 1; /**Return 1 if empty */
+        return 1; /*Return 1 if empty */
     }
-    return 0; //**Return 0 if not empty */
+    return 0; /*Return 0 if not empty */
 }
 
-//**Check to see if Queue is full */
+/*Check to see if Queue is full */
 int isFull(queue_t *q)
 {
     if (q->count == MAX_SIZE)
     {
-        return 1; //**Return 1 if full */
+        return 1; /*Return 1 if full */
     }
     return 0;
 }
-//**Adds a new element to the queue */
+
+/*Adds a new element to the queue */
 void enqueue(queue_t *q, char value[])
 {
     if (isFull(q))
@@ -768,7 +770,7 @@ void enqueue(queue_t *q, char value[])
     q->count++;
 }
 
-//**Removes the top element from the queue (First in First out)*/
+/*Removes the top element from the queue (First in First out)*/
 void dequeue(queue_t *q)
 {
     if (isEmpty(q))
@@ -780,7 +782,7 @@ void dequeue(queue_t *q)
     q->count--;
 }
 
-/**Gets the top element from the queue */
+/*Gets the top element from the queue */
 char *peek(queue_t *q)
 {
     if (isEmpty(q))
@@ -791,7 +793,7 @@ char *peek(queue_t *q)
     return q->items[q->front];
 }
 
-/**Prints the whole queue starting at first added element until last added element */
+/*Prints the whole queue starting at first added element until last added element */
 void printQueue(queue_t *q)
 {
     if (isEmpty(q))
