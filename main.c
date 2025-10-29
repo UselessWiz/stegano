@@ -18,9 +18,6 @@
 
 #define DATAFILE "stegano.dat"
 
-/* Using the queue structure, get recently accessed files in order */
-char **getRecentFiles(queue_t *q);
-
 void printMenu(void);
 void printHelp(void);
 int menuEncodeSelected(queue_t* queue_p);
@@ -208,7 +205,7 @@ Returns
 */
 void printMenu(void)
 {
-    printf("1. Encode a Message into an image\n" \
+    printf("1. Encode a message into an image\n" \
     "2. Decode a message from an image\n" \
     "3. View recent files\n" \
     "4. Exit\n");

@@ -810,7 +810,6 @@ void printQueue(queue_t *q)
         return;
     }
 
-    printf("Current Queue: ");
     int i, current = q->front;
     for (i = 0; i < q->count; i++)
     {
