@@ -1,7 +1,0 @@
-test.txt
-string.h
-testing.hello
-hello
-hello
-hello
-testing.queue

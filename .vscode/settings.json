@@ -1,6 +1,0 @@
-{
-    "files.associations": {
-        ".air.toml": "toml",
-        "stdio.h": "c"
-    }
-}
