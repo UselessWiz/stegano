@@ -503,11 +503,19 @@ void buildCode(huffmanNode_t* node, char *path, int depth, char *codeTable[256],
             path[0] = '0';
             path[1] = '\0';
             codeLen[(unsigned char)node->ch] = 1;
-            codeTable[(unsigned char)node->ch] = strdup("0"); /*Duplicate and store code*/
+            codeTable[(unsigned char)node->ch] = malloc(2);
+
+            if(codeTable[(unsigned char)node->ch]){
+                strcpy(codeTable[(unsigned char)node->ch], "0");
+            }
         } else{
             path[depth] = '\0'; /*End the string at current depth*/
             codeLen[(unsigned char)node->ch] = depth;
-            codeTable[(unsigned char)node->ch] = strdup(path); /*Store a copy of the code path*/
+            codeTable[(unsigned char)node->ch] = malloc(strlen(path) + 1);
+
+            if(codeTable[(unsigned char)node->ch]){
+                strcpy(codeTable[(unsigned char)node->ch], path);
+            }
         }
         return;
     }
@@ -802,7 +810,6 @@ void printQueue(queue_t *q)
         return;
     }
 
-    printf("Current Queue: ");
     int i, current = q->front;
     for (i = 0; i < q->count; i++)
     {
