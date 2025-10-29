@@ -1,4 +1,5 @@
 CC = gcc
+<<<<<<< HEAD
 CFLAGS = -ansi -Wall -Werror
 OUTDIR = bin
 
@@ -17,3 +18,9 @@ $(OUTDIR):
 clean: 
 	rm -rf bin
 	
+=======
+CFLAGS = -Wall -Werror -ansi
+
+main.exe: main.o stegano.o
+	$(CC) $(CFLAGS) -o main.exe main.o stegano.o -lm
+>>>>>>> compression-decompression
