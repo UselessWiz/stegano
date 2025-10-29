@@ -16,4 +16,3 @@ $(OUTDIR):
 
 clean: 
 	rm -rf bin
-	
