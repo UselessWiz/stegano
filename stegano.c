@@ -182,7 +182,7 @@ void encode(char *infile, char *outfile, char *message) {
     /* Stops the program if readImage returns corrupted image. */
     if(!pic.rgb || !pic.header) {
         printf("Failed to allocate memory for pic.rgb and pic.header in encode()\n");
-        return 1;
+        return;
     }
 
     /* Initialising variables. */
@@ -196,15 +196,16 @@ void encode(char *infile, char *outfile, char *message) {
         printf("Compression failed in encode()\n");
         free(pic.header);
         free(pic.rgb);
-        return 1;
+        return;
     }
+    
     /* Checks if the Huffman string is too long (or image is too small). */
     if(total_bits > max_bits) {
         printf("Message is too large for image in encode()\n");
         free(pic.header);
         free(pic.rgb);
         free(compressed);
-        return 1;
+        return;
     }
 
     /* Stores the total bits in the first 8 LSBs, since max string length after compression is 256. */
@@ -261,7 +262,7 @@ void encode(char *infile, char *outfile, char *message) {
         free(pic.header);
         free(pic.rgb);
         free(compressed);
-        return 1;
+        return;
     }
 
     /* Writes the header data from old image. */
@@ -292,7 +293,6 @@ void encode(char *infile, char *outfile, char *message) {
     free(pic.header);
     free(pic.rgb);
     free(compressed);
-    return total_bits;
 }
 
 /* Decodes the message from the image using the reserved logic
@@ -367,7 +367,6 @@ void decode(char *infile, char *outstring) {
     outstring[total_bits] = '\0';
     free(pic.header);
     free(pic.rgb);
-    return;
 }
 
 /*
