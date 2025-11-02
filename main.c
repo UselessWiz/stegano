@@ -34,8 +34,13 @@ int main() {
         return 1;
     }
     printf("Message after decompress: %s\n", decompressed);
-    free(decompressed);
 
+    /* Local allocation of decompressed and compressed. 
+       Freeing decompressed is conventional as decompressMessage() allocates it with char *decompressed.
+       But another instance of char *compressed is call with decode() that allocates memory for the Huffman string, 
+       and since decode can't free it internally since the string hasn't been processed with decompression, 
+       it has to be freed in the main. */
+    free(decompressed);
     free(compressed);
 
     return 0;
