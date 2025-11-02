@@ -68,10 +68,10 @@ int checkFileType(char *filename);
 image_t readImage(char *infile);
 
 /* Encode message into image */
-int encode(char *infile, char *outfile, char *message);
+void encode(char *infile, char *outfile, char *message);
 
 /* Decode message from image */
-char *decode(char *infile, int total_bits);
+void decode(char *infile, char *outstring);
 
 /* Takes a string in and returns a compressed version of it - most gcclikely with RLE (Sam)*/ 
 char* compressMessage(char message[], int *out_totalBits);

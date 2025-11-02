@@ -176,7 +176,7 @@ image_t readImage(char *infile) {
  *                       returns, later be used in decode to stop decode after
  *                       loop reaches total bits.
  */
-int encode(char *infile, char *outfile, char *message) {
+void encode(char *infile, char *outfile, char *message) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
     /* Stops the program if readImage returns corrupted image. */
@@ -186,8 +186,10 @@ int encode(char *infile, char *outfile, char *message) {
     }
 
     /* Initialising variables. */
-    int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
+    int i;
+    int max_bits = (pic.width * pic.height * RGB_PER_PIXEL) - 8; /* Reserving first byte for the number of total bits. */
     int total_bits = 0;
+
     /* Call to compressMessage(), compress message and access total bits from the function. */
     char *compressed = compressMessage(message, &total_bits);
     if(!compressed) {
@@ -204,19 +206,13 @@ int encode(char *infile, char *outfile, char *message) {
         free(compressed);
         return 1;
     }
-    
-    int i;
-    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
-    for(i = 0; i < total_bits; i++) {
-        char current_char = compressed[i];
-        int bit;
-        /* Checks whether the character in the string is 0, or 1. */
-        if(current_char == '1') {
-            bit = 1;
-        } else {
-            bit = 0;
-        }
-        
+
+    /* Stores the total bits in the first 8 LSBs, since max string length after compression is 256. */
+    unsigned char total_len = (unsigned char) total_bits;
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        /* Uses bitwise operator & (AND) to compare against number 1 to get each bit. */
+        int bit = (total_len >> (7 - i)) & 1;
+
         /* Indices and temporary array. 
          * Pixel index increments after every 3 channels.
          * Modulus always returns 0, 1, or 2, returning channel index.
@@ -229,12 +225,33 @@ int encode(char *infile, char *outfile, char *message) {
             &pic.rgb[pixel_index].blue
         };
 
+        /* Modifying the LSB of each channel based on bit of the integer. */
+        if(bit == 1) *channels[channel_index] |= 1;
+        else *channels[channel_index] &= ~1;
+    }
+    
+    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
+    for(i = 0; i < total_bits; i++) {
+        /* Starts at the 8th channel. */
+        int j = i + 8;
+        char current_char = compressed[i];
+        int bit;
+        /* Checks whether the character in the string is 0, or 1. */
+        if(current_char == '1') bit = 1;
+        else bit = 0;
+        
+        /* Indices and temporary array. */
+        int pixel_index = j / RGB_PER_PIXEL;
+        int channel_index = j % RGB_PER_PIXEL;
+        unsigned char *channels[RGB_PER_PIXEL] = {
+            &pic.rgb[pixel_index].red,
+            &pic.rgb[pixel_index].green,
+            &pic.rgb[pixel_index].blue
+        };
+
         /* Modifying the LSB of each channel based on each Huffman character assessed. */
-        if(bit == 1) {
-            *channels[channel_index] |= 1;
-        } else {
-            *channels[channel_index] &= ~1;
-        }
+        if(bit == 1) *channels[channel_index] |= 1;
+        else *channels[channel_index] &= ~1;
     }
     
     /* Creates new image. */
@@ -291,23 +308,21 @@ int encode(char *infile, char *outfile, char *message) {
  *  - return compressed: Returns compressed huffman string, can then 
  *                       be used to decompresss.
  */
-char *decode(char *infile, int total_bits) {
+void decode(char *infile, char *outstring) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
     /* Stops the program if readImage returns corrupted image. */
     if(!pic.rgb || !pic.header) {
         printf("Failed to allocate memory for pic.rgb and pic.header in decode()\n");
-        return NULL;
+        return;
     }
 
-    /* Initialises variable. */
-    char *compressed = malloc(total_bits + 1);
-    unsigned char current_char = 0;
     int i;
-    int bits_read = 0;
+    int max_bits = (pic.width * pic.height * RGB_PER_PIXEL) - 8;
+    int total_bits = 0;
 
-    /* Loops through the pixel and channels to decode the compressed Huffman string. */
-    for(i = 0; i < total_bits && bits_read < total_bits; i++) {
+    /* Extracts the number of total bits in the first byte. */
+    for(i = 0; i < BITS_PER_BYTE; i++) {
         /* Indices and temporary array. */
         int pixel_index = i / RGB_PER_PIXEL;
         int channel_index = i % RGB_PER_PIXEL;
@@ -317,22 +332,42 @@ char *decode(char *infile, int total_bits) {
             &pic.rgb[pixel_index].blue
         };
 
+        /* Extracting the LSBs. */
+        int bit = *channels[channel_index] & 1;
+        total_bits = (total_bits << 1) | bit;
+    }
+
+    if(total_bits <= 0 || total_bits > max_bits) {
+        printf("Invalid total_bits in decode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
+
+    /* Loops through the pixel and channels to decode the compressed Huffman string. */
+    for(i = 0; i < total_bits; i++) {
+        /* Indices and temporary array. */
+        int j = i + 8;
+        int pixel_index = j / RGB_PER_PIXEL;
+        int channel_index = j % RGB_PER_PIXEL;
+        unsigned char *channels[RGB_PER_PIXEL] = {
+            &pic.rgb[pixel_index].red,
+            &pic.rgb[pixel_index].green,
+            &pic.rgb[pixel_index].blue
+        };
+
         /* Extracts the LSB of the channel.
            Assigns current_char as '0' or '1' accordingly. */
         int bit = *channels[channel_index] & 1;
-        if(bit == 1) current_char = '1';
-        else current_char = '0';
-
-        /* Appends and increments. */
-        compressed[i] = current_char;
-        bits_read++;
+        if(bit == 1) outstring[i] = '1';
+        else outstring[i] = '0'; 
     }
 
     /* Adds a null terminator at the end of the decoded string. */
-    compressed[bits_read] = '\0';
+    outstring[total_bits] = '\0';
     free(pic.header);
     free(pic.rgb);
-    return compressed;
+    return;
 }
 
 /*
