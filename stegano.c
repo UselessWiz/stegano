@@ -297,7 +297,7 @@ char *decode(char *infile, int total_bits) {
     /* Stops the program if readImage returns corrupted image. */
     if(!pic.rgb || !pic.header) {
         printf("Failed to allocate memory for pic.rgb and pic.header in decode()\n");
-        return 1;
+        return NULL;
     }
 
     /* Initialises variable. */
