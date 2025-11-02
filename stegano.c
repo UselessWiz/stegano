@@ -336,6 +336,30 @@ char *decode(char *infile, int total_bits) {
 }
 
 /*
+Builds a frequency table of all characters in the given message.
+
+Parameters:
+message (const char[]): 
+- input string whose character frequencies are to be counted.
+
+freqTable (int[256]): 
+- An integer array used to store the frequency count of each possible characters (0-255). 
+- 256 including the null terminator.
+- array should be initialized to zero before calling this function.
+
+Returns (void):
+- This function does not return a value.
+- The resulting frequency counts are stored in the provided freqTable array.
+*/
+void buildFrequencyTable(const char message[], int freqTable[256]){
+    /*Create a frequency table*/
+    int i;
+    for(i = 0; message[i] != '\0'; i++){
+        freqTable[(unsigned char)message[i]]++;
+    }
+}
+
+/*
 Creates a sorted list of huffman tree leaf nodes based on character frequencies.
 
 Parameters:
