@@ -626,7 +626,7 @@ char* compressMessage(char message[], int *out_totalBits){
     createSortedNodeList(freqTable, nodeList, &size);
 
     if(size < 0){
-        return  NULL;
+        return NULL;
     }
 
     /*Build huffman treee from the sorted leaves*/
