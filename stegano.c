@@ -937,17 +937,41 @@ void initialiseQueue(queue_t *q)
     q->count = 0;
 }
 
-/*Check to see if Queue is empty*/
+/*
+Checks if there are any values in the current queue
+
+Parameters:
+
+q (queue_t*): a pointer to the designated queue.
+
+Returns (int):
+
+Whether the queue is empty or not
+0 - Not empty
+1 - Empty
+*/
 int isEmpty(queue_t *q)
 {
     if (q->count == 0)
     {
         return 1; /*Return 1 if empty */
     }
-    return 0; /*Return 0 if not empty */
+    return 0; /**Return 0 if not empty */
 }
 
-/*Check to see if Queue is full */
+/*
+Checks if the queue has reached the maximum amount of elements
+Max is set by developer - Located in stegano.h (MAX_SIZE)
+
+Parameters:
+
+q (queue_t*): a pointer to the designated queue.
+Returns (int):
+
+Whether the function succesfully writes to the designated file
+0 - Not full
+1 - Full
+*/
 int isFull(queue_t *q)
 {
     if (q->count == MAX_SIZE)
@@ -957,7 +981,19 @@ int isFull(queue_t *q)
     return 0;
 }
 
-/*Adds a new element to the queue */
+/*
+Adds a new element to the back of the queue
+The element would be most recent file that got used
+
+Parameters:
+
+q (queue_t*): a pointer to the application's queue.
+value[] (char): rray of characters (string) added to the queue
+
+Returns (void):
+
+Nothing is returned
+*/
 void enqueue(queue_t *q, char value[])
 {
     if (isFull(q))
@@ -970,7 +1006,17 @@ void enqueue(queue_t *q, char value[])
     q->count++;
 }
 
-/*Removes the top element from the queue (First in First out)*/
+/*
+Removes the element that is currently at the front of the queue (First In First Out)
+
+Parameters:
+
+q (queue_t*): a pointer to the application's queue.
+
+Returns (void):
+
+Nothing is returned
+*/
 void dequeue(queue_t *q)
 {
     if (isEmpty(q))
@@ -982,7 +1028,17 @@ void dequeue(queue_t *q)
     q->count--;
 }
 
-/*Gets the top element from the queue */
+/*
+Peeks at the element that is currently at the front of the queue
+
+Parameters:
+
+q (queue_t*): a pointer to the application's queue.
+
+Returns (char*):
+
+Points to the value at the front of the queue
+*/
 char *peek(queue_t *q)
 {
     if (isEmpty(q))
@@ -993,7 +1049,18 @@ char *peek(queue_t *q)
     return q->items[q->front];
 }
 
-/*Prints the whole queue starting at first added element until last added element */
+/*
+Prints all values in the queue starting at the front until the back is reached
+
+Parameters:
+
+q (queue_t*): a pointer to the application's queue.
+
+Returns (void):
+
+Nothing is returned
+All values are printed to the terminal
+*/
 void printQueue(queue_t *q)
 {
     if (isEmpty(q))
@@ -1003,7 +1070,7 @@ void printQueue(queue_t *q)
     }
 
     int i, current = q->front;
-    for (i = 0; i < q->count; i++)
+    for (i = 0; i < q->count; i++) /* Iterating through the queue */
     {
         printf("%s ", q->items[current]);
         current = (current + 1) % MAX_SIZE;

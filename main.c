@@ -367,42 +367,74 @@ void stringInput(char prompt[], int maxResponseLen, char response[])
     }
 }
 
+/*
+Writes the elements in the application's queue into a .txt file.
+The .txt file is specified by the user
+Checks whether the queue is empty before writing into the file
+
+Parameters:
+
+q (queue_t*): a pointer to the application's queue.
+filename (const char*): a pointer to the designated file
+
+Returns (int):
+
+Whether the function succesfully writes to the designated file
+0 - Unsuccessful
+1 - Successful
+*/
 int writeQueueToFile(queue_t *q, const char *filename)
 {
-    FILE *fptr = fopen(filename, "w");
+    FILE *fptr = fopen(filename, "w"); /* Opens the designated file and assigns it to fptr */
 
-    if (fptr == NULL)
+    if (fptr == NULL) /* Check if the file has opened succesfully */
     {
+        printf("ERROR: Could not open '%s' file\n", filename);
         return FILENOTFOUNDERROR;
     }
 
-    if (isEmpty(q))
+    if (isEmpty(q)) /* Check if there is anything stored in the Queue array*/
     {
-        fclose(fptr);
+        fclose(fptr); /* Successfull, clears the existing file of all data*/
         return 1;
     }
 
-    int i, current = q->front;
-    for (i = 0; i < q->count; i++)
+    int i, current = q->front;     /* Initialise i (for loop), Initialise current to front of queue */
+    for (i = 0; i < q->count; i++) /* Run until reaching end */
     {
-        fprintf(fptr, "%s\n", q->items[current]);
-        current = (current + 1) % MAX_SIZE;
+        fprintf(fptr, "%s\n", q->items[current]); /* Writes the current value into the designated file */
+        current = (current + 1) % MAX_SIZE;       /* Increments current to the next position in the queue*/
     }
 
-    fclose(fptr);
+    fclose(fptr); /* Close */
     return 0;
 }
 
+/*
+Reads the elements from the designated .txt file and loads the applications queue with that data
+The .txt file is specified by the user
+
+Parameters:
+
+q (queue_t*): a pointer to the application's queue.
+filename (const char*): a pointer to the designated file
+
+Returns (int):
+
+Whether the function succesfully writes to the designated file
+0 - Unsuccessful
+1 - Successful
+*/
 int readQueueFromFile(queue_t *q, const char *filename)
 {
-    FILE *fptr = fopen(filename, "r");
+    FILE *fptr = fopen(filename, "r"); /* Opens the designated file and assigns it to fptr */
 
-    if (fptr == NULL)
+    if (fptr == NULL) /* Check if the file has opened succesfully */
     {
-        return FILENOTFOUNDERROR;
+        return FILENOTFOUNDERROR; /* Returns an error code */
     }
 
-    initialiseQueue(q);
+    initialiseQueue(q); /* Clears queue and reinitialises all values to = 0*/
 
     char buffer[MAXFILELEN];
     while (fgets(buffer, sizeof(buffer), fptr) != NULL)

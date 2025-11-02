@@ -16,3 +16,7 @@ $(OUTDIR):
 
 clean: 
 	rm -rf bin
+<<<<<<< HEAD
+=======
+	
+>>>>>>> origin/File-Queue
