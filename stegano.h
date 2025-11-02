@@ -7,8 +7,6 @@
 
 #define FILEHEADER_SIZE 14
 #define BFTYPE_SIZE 2
-#define IMAGEHEADER_SIZE 40
-#define HEADER_SIZE (FILEHEADER_SIZE + IMAGEHEADER_SIZE)
 #define BITS_PER_BYTE 8
 #define RGB_PER_PIXEL 3
 
@@ -50,8 +48,8 @@ typedef struct {
     int width;
     int height;
     unsigned int offset;
+    unsigned char *header;
     rgb_t *rgb;
-    unsigned char header[HEADER_SIZE];
 } image_t;
 
 /* QUEUE */
@@ -75,8 +73,16 @@ int calcPadding(int width);
 /* Checks for correct BMP file type and format */
 int checkFileType(char *filename);
 
+/*** Encode, decode helper functions ***/
 /* Read image, check for correct file format */
 image_t readImage(char *infile);
+
+/* Set LSB of RGB channel to 0 or 1. */
+void setLSBPixel(image_t *pic, int bit_index, int bit);
+
+/* Extract LSB of RGB channel. */
+void getLSBPixel(image_t *pic, int bit_index, int *bit);
+/***************************************/
 
 /* Encode message into image */
 void encode(char *infile, char *outfile, char *message);
@@ -105,7 +111,7 @@ char *peek(queue_t *q);
 void printQueue(queue_t *q);
 
 /* Takes a string in and returns a compressed version of it - most gcclikely with RLE (Sam)*/ 
-char* compressMessage(char message[]);
+char* compressMessage(char message[], int *out_totalBits);
 
 /* Takes a compressed string in and returns the decompressed version of it (Sam) */
 char* decompressMessage(const char compressed[], const int freqTable[256], int messageLength);
