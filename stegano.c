@@ -159,6 +159,31 @@ image_t readImage(char *infile) {
     return pic;
 }
 
+void setLSBPixel(image_t *pic, int bit_index, int bit) {
+    int pixel_index = bit_index / RGB_PER_PIXEL;
+    int channel_index = bit_index % RGB_PER_PIXEL;
+
+    unsigned char *channel;
+    if(channel_index == 0) channel = &pic->rgb[pixel_index].red;
+    else if(channel_index == 1) channel = &pic->rgb[pixel_index].green;
+    else channel = &pic->rgb[pixel_index].blue;
+
+    if(bit == 1) *channel |= 1;
+    else *channel &= ~1;
+}
+
+void getLSBPixel(image_t *pic, int bit_index, int *bit) {
+    int pixel_index = bit_index / RGB_PER_PIXEL;
+    int channel_index = bit_index % RGB_PER_PIXEL;
+
+    unsigned char *channel;
+    if(channel_index == 0) channel = &pic->rgb[pixel_index].red;
+    else if(channel_index == 1) channel = &pic->rgb[pixel_index].green;
+    else channel = &pic->rgb[pixel_index].blue;
+
+    *bit = *channel & 1;
+}
+
 /* Encodes the message into each color value of the pixels.
  * Creates a new image, writes the modified RGB values into 
  * the output image.
@@ -185,10 +210,16 @@ void encode(char *infile, char *outfile, char *message) {
         return;
     }
 
-    /* Initialising variables. */
-    int i;
-    int max_bits = (pic.width * pic.height * RGB_PER_PIXEL) - 8; /* Reserving first byte for the number of total bits. */
+    int i, j;
     int total_bits = 0;
+
+    int message_len = strlen(message);
+    if(message_len == 0) {
+        printf("Message is empty - encode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
 
     /* Call to compressMessage(), compress message and access total bits from the function. */
     char *compressed = compressMessage(message, &total_bits);
@@ -198,10 +229,17 @@ void encode(char *infile, char *outfile, char *message) {
         free(pic.rgb);
         return;
     }
-    
-    /* Checks if the Huffman string is too long (or image is too small). */
-    if(total_bits > max_bits) {
-        printf("Message is too large for image in encode()\n");
+
+    printf("Compressed message: %s\n", compressed);
+
+    int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
+    int required_bits = tree_bits + total_bits;
+    int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
+
+    /* Checks if image is too small (or message too large). */
+    if(total_bits > (MAX_MESSAGE_SIZE - 1) || required_bits > max_bits) {
+        if(total_bits > (MAX_MESSAGE_SIZE - 1)) printf("Message is too large - encode()\n");
+        else printf("Image too small - encode()\n");
         free(pic.header);
         free(pic.rgb);
         free(compressed);
@@ -209,50 +247,46 @@ void encode(char *infile, char *outfile, char *message) {
     }
 
     /* Stores the total bits in the first 8 LSBs, since max string length after compression is 256. */
-    unsigned char total_len = (unsigned char) total_bits;
     for(i = 0; i < BITS_PER_BYTE; i++) {
         /* Uses bitwise operator & (AND) to compare against number 1 to get each bit. */
-        int bit = (total_len >> (7 - i)) & 1;
-
-        /* Indices and temporary array. 
-         * Pixel index increments after every 3 channels.
-         * Modulus always returns 0, 1, or 2, returning channel index.
-         */
-        int pixel_index = i / RGB_PER_PIXEL;
-        int channel_index = i % RGB_PER_PIXEL;
-        unsigned char *channels[RGB_PER_PIXEL] = {
-            &pic.rgb[pixel_index].red,
-            &pic.rgb[pixel_index].green,
-            &pic.rgb[pixel_index].blue
-        };
-
-        /* Modifying the LSB of each channel based on bit of the integer. */
-        if(bit == 1) *channels[channel_index] |= 1;
-        else *channels[channel_index] &= ~1;
+        int bit = (total_bits >> (7 - i)) & 1;
+        
+        setLSBPixel(&pic, i, bit);
     }
-    
+
+    int start_meslen = 8;
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        int bit = (message_len >> (7 - i)) & 1;
+        int j = i + start_meslen;
+
+        setLSBPixel(&pic, j, bit);
+    }
+
+    int freqTable[MAX_MESSAGE_SIZE] = {0};
+    buildFrequencyTable(message, freqTable);
+
+    int start_freq = 16;
+    for(i = 0; i < MAX_MESSAGE_SIZE; i++) {
+        unsigned char buffer = freqTable[i];
+        for(j = 0; j < BITS_PER_BYTE; j++) {
+            int bit = (buffer >> (7 - j)) & 1;
+            int freq_index = start_freq + i * BITS_PER_BYTE + j;
+            
+            setLSBPixel(&pic, freq_index, bit);
+        }
+    }
+
     /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
     for(i = 0; i < total_bits; i++) {
         /* Starts at the 8th channel. */
-        int j = i + 8;
+        int j = i + tree_bits;
         char current_char = compressed[i];
         int bit;
         /* Checks whether the character in the string is 0, or 1. */
         if(current_char == '1') bit = 1;
         else bit = 0;
-        
-        /* Indices and temporary array. */
-        int pixel_index = j / RGB_PER_PIXEL;
-        int channel_index = j % RGB_PER_PIXEL;
-        unsigned char *channels[RGB_PER_PIXEL] = {
-            &pic.rgb[pixel_index].red,
-            &pic.rgb[pixel_index].green,
-            &pic.rgb[pixel_index].blue
-        };
 
-        /* Modifying the LSB of each channel based on each Huffman character assessed. */
-        if(bit == 1) *channels[channel_index] |= 1;
-        else *channels[channel_index] &= ~1;
+        setLSBPixel(&pic, j, bit);
     }
     
     /* Creates new image. */
@@ -273,12 +307,11 @@ void encode(char *infile, char *outfile, char *message) {
     unsigned char pad[RGB_PER_PIXEL] = {0, 0, 0};
     unsigned char channel[RGB_PER_PIXEL];
 
-    int x, y;
     /* Loops bottom to top, left to right. */
-    for(y = pic.height - 1; y >= 0; y--) {
-        for(x = 0; x < pic.width; x++) {
+    for(i = pic.height - 1; i >= 0; i--) {
+        for(j = 0; j < pic.width; j++) {
             /* Index for each value of each pixel. */
-            int index = y * pic.width + x;
+            int index = i * pic.width + j;
             channel[2] = pic.rgb[index].red;
             channel[1] = pic.rgb[index].green;
             channel[0] = pic.rgb[index].blue;
@@ -317,56 +350,86 @@ void decode(char *infile, char *outstring) {
         return;
     }
 
-    int i;
-    int max_bits = (pic.width * pic.height * RGB_PER_PIXEL) - 8;
-    int total_bits = 0;
+    int i, j;
+    int total_bits = 0, message_len = 0;
+    int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
+    int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
 
     /* Extracts the number of total bits in the first byte. */
     for(i = 0; i < BITS_PER_BYTE; i++) {
-        /* Indices and temporary array. */
-        int pixel_index = i / RGB_PER_PIXEL;
-        int channel_index = i % RGB_PER_PIXEL;
-        unsigned char *channels[RGB_PER_PIXEL] = {
-            &pic.rgb[pixel_index].red,
-            &pic.rgb[pixel_index].green,
-            &pic.rgb[pixel_index].blue
-        };
-
-        /* Extracting the LSBs. */
-        int bit = *channels[channel_index] & 1;
+        int bit;
+        getLSBPixel(&pic, i, &bit);
         total_bits = (total_bits << 1) | bit;
     }
 
-    if(total_bits <= 0 || total_bits > max_bits) {
+    printf("total bits: %d\n", total_bits);
+
+    if(total_bits <= 0 || tree_bits + total_bits > max_bits) {
         printf("Invalid total_bits in decode()\n");
         free(pic.header);
         free(pic.rgb);
         return;
     }
 
-    /* Loops through the pixel and channels to decode the compressed Huffman string. */
-    for(i = 0; i < total_bits; i++) {
-        /* Indices and temporary array. */
-        int j = i + 8;
-        int pixel_index = j / RGB_PER_PIXEL;
-        int channel_index = j % RGB_PER_PIXEL;
-        unsigned char *channels[RGB_PER_PIXEL] = {
-            &pic.rgb[pixel_index].red,
-            &pic.rgb[pixel_index].green,
-            &pic.rgb[pixel_index].blue
-        };
+    int start_meslen = 8;
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        int bit;
+        int j = i + start_meslen;
+        getLSBPixel(&pic, j, &bit);
+        message_len = (message_len << 1) | bit;
+    }
+    
+    printf("message len: %d\n", message_len);
 
-        /* Extracts the LSB of the channel.
-           Assigns current_char as '0' or '1' accordingly. */
-        int bit = *channels[channel_index] & 1;
-        if(bit == 1) outstring[i] = '1';
-        else outstring[i] = '0'; 
+    int start_freq = 16;
+    int freqTable[MAX_MESSAGE_SIZE] = {0};
+    for(i = 0; i < MAX_MESSAGE_SIZE; i++) {
+        int current_freq = 0;
+        for(j = 0; j < BITS_PER_BYTE; j++) {
+            int bit;
+            int freq_index = start_freq + i * BITS_PER_BYTE + j;
+            getLSBPixel(&pic, freq_index, &bit);
+            current_freq = (current_freq << 1) | bit;
+        }
+        freqTable[i] = current_freq;
     }
 
-    /* Adds a null terminator at the end of the decoded string. */
-    outstring[total_bits] = '\0';
+    char *compressed = malloc(total_bits + 1);
+    if(!compressed) {
+        printf("Compression failed in decode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
+
+    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
+    for(i = 0; i < total_bits; i++) {
+        int j = i + tree_bits;
+        int bit;
+        /* Checks whether the character in the string is 0, or 1. */
+        getLSBPixel(&pic, j, &bit);
+        
+        if(bit == 1) compressed[i] = '1';
+        else compressed[i] = '0';
+    }
+
+    compressed[total_bits] = '\0';
+
+    char *decompressed = decompressMessage(compressed, freqTable, message_len);
+    if(!decompressed) {
+        printf("Decompression failed in decode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        free(compressed);
+        return;
+    }
+
+    strcpy(outstring, decompressed);
+
     free(pic.header);
     free(pic.rgb);
+    free(compressed);
+    free(decompressed);
 }
 
 /*

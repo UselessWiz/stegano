@@ -6,7 +6,7 @@
 int main() {
     char infile[] = "image.bmp";
     char outfile[] = "new.bmp";
-    char message[MAX_MESSAGE_SIZE] = "hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0!";
+    char message[MAX_MESSAGE_SIZE] = "hello world 0! hello helo woij fowjefo wejoif wjeowiejf w";
     char outstring[MAX_MESSAGE_SIZE] = "";
     printf("Message before compress: %s\n", message);
     printf("Length before: %d bytes\n", (int) (strlen(message)));

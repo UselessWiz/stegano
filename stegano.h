@@ -67,6 +67,10 @@ int checkFileType(char *filename);
 /* Read image, check for correct file format */
 image_t readImage(char *infile);
 
+void setLSBPixel(image_t *pic, int bit_index, int bit);
+
+void getLSBPixel(image_t *pic, int bit_index, int *bit);
+
 /* Encode message into image */
 void encode(char *infile, char *outfile, char *message);
 
