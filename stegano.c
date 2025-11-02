@@ -11,7 +11,7 @@
  *  - int width: The width of the image (for width of row).
  * Output:
  *  - int padding: Total bytes needs to pad a row.
- */
+*/
 int calcPadding(int width) {
     const int alignment = 4;
     int row_bytes = width * RGB_PER_PIXEL;
@@ -33,7 +33,7 @@ int calcPadding(int width) {
  * Output:
  *  - 0: If correct file format.
  *  - 1: If open error or incorrect file format.
- */
+*/
 int checkFileType(char *filename) {
     FILE *image = fopen(filename, "rb");
     if(!image) {
@@ -58,13 +58,21 @@ int checkFileType(char *filename) {
         return 1;
     }
 
-    /* Checks for correct header information. */
-    if((ih.biSize != 40) || (ih.biCompression != 0) || (ih.biBitCount != 24)) {
+    /* Checks for correct 24-bit, uncompressed format. */
+    if((ih.biBitCount != 24) || (ih.biCompression != 0)) {
         fclose(image);
-        printf("Image header error\n");
+        printf("Image header error\n"
+               "Must be 24-bit color format and uncompressed\n");
         return 1;
     }
 
+    /* Check for correct bottom-up BMP format. */
+    if((ih.biHeight < 0)) {
+        printf("Top-down BMP not supported\n");
+        return 1;
+    }
+
+    fclose(image);
     return 0;
 }
 
@@ -77,7 +85,7 @@ int checkFileType(char *filename) {
  * Output:
  *  - image_t pic: Returns the instance pic of image_t struct along
  *                 with its data.
- */
+*/
 image_t readImage(char *infile) {
     int i, j;
 
@@ -88,6 +96,7 @@ image_t readImage(char *infile) {
     pic.width = 0;
     pic.height = 0;
     pic.offset = 0;
+    pic.header = NULL;
     pic.rgb = NULL;
     if(!image) {
         printf("readImage open error: %s\n", infile);
@@ -96,31 +105,41 @@ image_t readImage(char *infile) {
 
     /* Seeks specific positions in the image to find the offset, width, 
        height, and header data. */
-    fseek(image, START_BYTE, SEEK_SET);
-    fread(pic.header, 1, HEADER_SIZE, image);
     fseek(image, OFFSET_BYTE, SEEK_SET);
     fread(&pic.offset, sizeof(pic.offset), 1, image);
     fseek(image, WIDTH_BYTE, SEEK_SET);
     fread(&pic.width, sizeof(pic.width), 1, image);
     fseek(image, HEIGHT_BYTE, SEEK_SET);
-    fread(&pic.height, sizeof(pic.height), 1, image); 
-    
-    /* Skips to byte 54 (where the RGB sequence starts). */
-    fseek(image, HEADER_SIZE, SEEK_SET);
+    fread(&pic.height, sizeof(pic.height), 1, image);
+
+    /* Memory allocates *header with size of offset (total size of header in bytes). */
+    pic.header = malloc(pic.offset);
+    if(!pic.header) {
+        printf("pic.header malloc failed\n");
+        fclose(image);
+        return pic;
+    }
+    /* Skips to start to read full header and stores in struct variable. */
+    fseek(image, START_BYTE, SEEK_SET);
+    fread(pic.header, 1, pic.offset, image);
     
     /* Allocates memory for total RGB values. */
     pic.rgb = malloc(pic.width * pic.height * RGB_PER_PIXEL);
     if(!pic.rgb) {
         printf("pic.rgb malloc failed\n");
+        free(pic.header);
         fclose(image);
+        pic.header = NULL;
         return pic;
     }
 
+    /* Skips to offset byte, indicator of where the RGB sequence starts. */
+    fseek(image, pic.offset, SEEK_SET);
     /* Padding and temporary array. */
     int padding = calcPadding(pic.width);
     unsigned char channel[RGB_PER_PIXEL];
-    /* Loops through image dimensions from (height - 1) as BMP files 
-       store information from bottom to top, left to right. */
+
+    /* Loops through image dimensions from (height - 1), following bottom-up convention, left to right. */
     for(i = pic.height - 1; i >= 0; i--) {
         for(j = 0; j < pic.width; j++) {
             /* Index for each value of each pixel. */
@@ -140,9 +159,36 @@ image_t readImage(char *infile) {
     return pic;
 }
 
+void setLSBPixel(image_t *pic, int bit_index, int bit) {
+    int pixel_index = bit_index / RGB_PER_PIXEL;
+    int channel_index = bit_index % RGB_PER_PIXEL;
+
+    unsigned char *channel;
+    if(channel_index == 0) channel = &pic->rgb[pixel_index].red;
+    else if(channel_index == 1) channel = &pic->rgb[pixel_index].green;
+    else channel = &pic->rgb[pixel_index].blue;
+
+    if(bit == 1) *channel |= 1;
+    else *channel &= ~1;
+}
+
+void getLSBPixel(image_t *pic, int bit_index, int *bit) {
+    int pixel_index = bit_index / RGB_PER_PIXEL;
+    int channel_index = bit_index % RGB_PER_PIXEL;
+
+    unsigned char *channel;
+    if(channel_index == 0) channel = &pic->rgb[pixel_index].red;
+    else if(channel_index == 1) channel = &pic->rgb[pixel_index].green;
+    else channel = &pic->rgb[pixel_index].blue;
+
+    *bit = *channel & 1;
+}
+
 /* Encodes the message into each color value of the pixels.
  * Creates a new image, writes the modified RGB values into 
  * the output image.
+ * encode() allocates and frees internal memory.
+ * Caller is not responsible for freeing.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
@@ -151,65 +197,105 @@ image_t readImage(char *infile) {
  *                   to write.
  *  - char *message: Pointer to char (string) message.
  * Output:
- *  - Function of type void, no output (except the new image).
+ *  - return total_bits: Total number of bits that the huffman compress 
+ *                       returns, later be used in decode to stop decode after
+ *                       loop reaches total bits.
  */
 void encode(char *infile, char *outfile, char *message) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
+    /* Stops the program if readImage returns corrupted image. */
+    if(!pic.rgb || !pic.header) {
+        printf("Failed to allocate memory for pic.rgb and pic.header in encode()\n");
+        return;
+    }
 
-    int i, j, k;
-    int char_index = 0, bit_index = 0, bits_hidden = 0;
-    int len = strlen(message);
-    /* +1 to account for null terminator. */
-    int total_bits = (len + 1) * BITS_PER_BYTE;
+    int i, j;
+    int total_bits = 0;
 
-    /* Loops through the image dimensions until all bits are hidden. */
-    for(i = 0; i < pic.height && bits_hidden < total_bits; i++) {
-        for(j = 0; j < pic.width && bits_hidden < total_bits; j++) {
-            /* Index for RGB value and temporary array. */
-            int index = i * pic.width + j;
-            unsigned char *channels[RGB_PER_PIXEL] = {
-                &pic.rgb[index].red,
-                &pic.rgb[index].green,
-                &pic.rgb[index].blue
-            };
-            /* Loops through 3 color values of a pixel until all bits are hidden. */
-            for(k = 0; k < RGB_PER_PIXEL && bits_hidden < total_bits; k++) {
-                unsigned char current_char;
-                /* Assigns each character and null terminator. */
-                if(char_index < len) {
-                    current_char = message[char_index];
-                } else {
-                    current_char = '\0';
-                }
+    int message_len = strlen(message);
+    if(message_len == 0) {
+        printf("Message is empty - encode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
 
-                /* Uses bitwise operator & (AND) to compare against 
-                   number 1 to get each bit. */
-                int bit = (current_char >> (7 - bit_index)) & 1;
+    /* Call to compressMessage(), compress message and access total bits from the function. */
+    char *compressed = compressMessage(message, &total_bits);
+    if(!compressed) {
+        printf("Compression failed in encode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
 
-                /* Sets the LSB of the color value to 1 (makes it odd). */
-                if(bit == 1) *channels[k] |= 1;
+    printf("Compressed message: %s\n", compressed);
 
-                /* Sets the LSB of the color value to 0 (makes it even). */
-                else *channels[k] &= ~1;
+    int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
+    int required_bits = tree_bits + total_bits;
+    int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
 
-                /* Increments after each pixel assignment. */
-                bits_hidden++;
-                bit_index++;
+    /* Checks if image is too small (or message too large). */
+    if(total_bits > (MAX_MESSAGE_SIZE - 1) || required_bits > max_bits) {
+        if(total_bits > (MAX_MESSAGE_SIZE - 1)) printf("Message is too large - encode()\n");
+        else printf("Image too small - encode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        free(compressed);
+        return;
+    }
 
-                /* Resets and increments after every 8-bit cycle. */
-                if(bit_index == BITS_PER_BYTE) {
-                    bit_index = 0;
-                    char_index++;
-                }
-            }
+    /* Stores the total bits in the first 8 LSBs, since max string length after compression is 256. */
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        /* Uses bitwise operator & (AND) to compare against number 1 to get each bit. */
+        int bit = (total_bits >> (7 - i)) & 1;
+        
+        setLSBPixel(&pic, i, bit);
+    }
+
+    int start_meslen = 8;
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        int bit = (message_len >> (7 - i)) & 1;
+        int j = i + start_meslen;
+
+        setLSBPixel(&pic, j, bit);
+    }
+
+    int freqTable[MAX_MESSAGE_SIZE] = {0};
+    buildFrequencyTable(message, freqTable);
+
+    int start_freq = 16;
+    for(i = 0; i < MAX_MESSAGE_SIZE; i++) {
+        unsigned char buffer = freqTable[i];
+        for(j = 0; j < BITS_PER_BYTE; j++) {
+            int bit = (buffer >> (7 - j)) & 1;
+            int freq_index = start_freq + i * BITS_PER_BYTE + j;
+            
+            setLSBPixel(&pic, freq_index, bit);
         }
+    }
+
+    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
+    for(i = 0; i < total_bits; i++) {
+        /* Starts at the 8th channel. */
+        int j = i + tree_bits;
+        char current_char = compressed[i];
+        int bit;
+        /* Checks whether the character in the string is 0, or 1. */
+        if(current_char == '1') bit = 1;
+        else bit = 0;
+
+        setLSBPixel(&pic, j, bit);
     }
     
     /* Creates new image. */
     FILE *newimage = fopen(outfile, "wb");
     if(newimage == NULL) {
         printf("Encode function open error: %s\n", outfile);
+        free(pic.header);
+        free(pic.rgb);
+        free(compressed);
         return;
     }
 
@@ -237,70 +323,113 @@ void encode(char *infile, char *outfile, char *message) {
     }
 
     fclose(newimage);
+    free(pic.header);
     free(pic.rgb);
+    free(compressed);
 }
 
 /* Decodes the message from the image using the reserved logic
  * of encoding and puts the message in a string.
+ * decode() allocates the compressed data and returns it.
+ * Caller (main) is responsible for freeing it.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
  *                  to read.
  *  - char *outstring: Pointer to char outstring (decoded string).
  * Output:
- *  - Function of type void, no output.
- * 
+ *  - return compressed: Returns compressed huffman string, can then 
+ *                       be used to decompresss.
  */
 void decode(char *infile, char *outstring) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
-
-    /* Initialises variables and stop flag. */
-    int i, j, k;
-    int char_index = 0, bit_index = 0, flag = 0;
-    unsigned char current_char = 0;
-
-    /* readImage() already reordered pixel rows and RGB values,
-       decode() can loop from top to bottom until stop flag. */
-    for(i = 0; i < pic.height && !flag; i++) {
-        for(j = 0; j < pic.width && !flag; j++) {
-            /* Index and temporary array. */
-            int index = i * pic.width + j;
-            unsigned char *channels[RGB_PER_PIXEL] = {
-                &pic.rgb[index].red,
-                &pic.rgb[index].green,
-                &pic.rgb[index].blue
-            };
-
-            /* Reconstructs the hidden message bit by bit. 
-             * Extracts each value's LSB, shifts current_char left. 
-             * Appends new bit.
-             */
-            for(k = 0; k < RGB_PER_PIXEL && !flag; k++) {
-                int bit = *channels[k] & 1;
-                current_char = (current_char << 1) | bit;
-                bit_index++;
-
-                /* Stores one character every 8-bit cycle and updates indices. */
-                if(bit_index == BITS_PER_BYTE) {
-                    outstring[char_index] = current_char;
-                    char_index++;
-
-                    /* Triggers stop flag if null terminator (8-bit 0 sequence) is found. */
-                    if(current_char == '\0') {
-                        flag = 1;
-                        break;
-                    }
-                    bit_index = 0;
-                    current_char = 0;
-                }
-            }
-        }
+    /* Stops the program if readImage returns corrupted image. */
+    if(!pic.rgb || !pic.header) {
+        printf("Failed to allocate memory for pic.rgb and pic.header in decode()\n");
+        return;
     }
 
-    /* Adds a null terminator at the end of the decoded string. */
-    outstring[char_index] = '\0';
+    int i, j;
+    int total_bits = 0, message_len = 0;
+    int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
+    int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
+
+    /* Extracts the number of total bits in the first byte. */
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        int bit;
+        getLSBPixel(&pic, i, &bit);
+        total_bits = (total_bits << 1) | bit;
+    }
+
+    printf("total bits: %d\n", total_bits);
+
+    if(total_bits <= 0 || tree_bits + total_bits > max_bits) {
+        printf("Invalid total_bits in decode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
+
+    int start_meslen = 8;
+    for(i = 0; i < BITS_PER_BYTE; i++) {
+        int bit;
+        int j = i + start_meslen;
+        getLSBPixel(&pic, j, &bit);
+        message_len = (message_len << 1) | bit;
+    }
+    
+    printf("message len: %d\n", message_len);
+
+    int start_freq = 16;
+    int freqTable[MAX_MESSAGE_SIZE] = {0};
+    for(i = 0; i < MAX_MESSAGE_SIZE; i++) {
+        int current_freq = 0;
+        for(j = 0; j < BITS_PER_BYTE; j++) {
+            int bit;
+            int freq_index = start_freq + i * BITS_PER_BYTE + j;
+            getLSBPixel(&pic, freq_index, &bit);
+            current_freq = (current_freq << 1) | bit;
+        }
+        freqTable[i] = current_freq;
+    }
+
+    char *compressed = malloc(total_bits + 1);
+    if(!compressed) {
+        printf("Compression failed in decode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return;
+    }
+
+    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
+    for(i = 0; i < total_bits; i++) {
+        int j = i + tree_bits;
+        int bit;
+        /* Checks whether the character in the string is 0, or 1. */
+        getLSBPixel(&pic, j, &bit);
+        
+        if(bit == 1) compressed[i] = '1';
+        else compressed[i] = '0';
+    }
+
+    compressed[total_bits] = '\0';
+
+    char *decompressed = decompressMessage(compressed, freqTable, message_len);
+    if(!decompressed) {
+        printf("Decompression failed in decode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        free(compressed);
+        return;
+    }
+
+    strcpy(outstring, decompressed);
+
+    free(pic.header);
     free(pic.rgb);
+    free(compressed);
+    free(decompressed);
 }
 
 /*
@@ -534,6 +663,9 @@ Parameters:
 message (char[]):
 - the input string to be compressed.
 
+int *out_totalBits:
+- the number of total bits needed for encode/decode.
+
 Returns (char*):
 - A dynamically allocated string containing the compressed message 
   represented as a sequence of '0's and '1's.
@@ -546,7 +678,7 @@ Notes:
   and encodes the message.
 */
 
-char* compressMessage(char message[]){
+char* compressMessage(char message[], int *out_totalBits){
     /*Build frequency table from input*/
     int freqTable[256] = {0};
     buildFrequencyTable(message, freqTable);
@@ -557,7 +689,7 @@ char* compressMessage(char message[]){
     createSortedNodeList(freqTable, nodeList, &size);
 
     if(size < 0){
-        return  NULL;
+        return NULL;
     }
 
     /*Build huffman treee from the sorted leaves*/
@@ -614,7 +746,7 @@ char* compressMessage(char message[]){
         free(codes[i]);
     }
     freeHuffmanTree(root);
-
+    *out_totalBits = totalBits;
     return output;
 }
 
@@ -735,86 +867,4 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
     freeHuffmanTree(root);
     return output;
 
-}
-
-/*Set all values to 0 in Struct */
-void initialiseQueue(queue_t *q)
-{
-    q->front = 0;
-    q->back = 0;
-    q->count = 0;
-}
-
-/*Check to see if Queue is empty*/
-int isEmpty(queue_t *q)
-{
-    if (q->count == 0)
-    {
-        return 1; /*Return 1 if empty */
-    }
-    return 0; /*Return 0 if not empty */
-}
-
-/*Check to see if Queue is full */
-int isFull(queue_t *q)
-{
-    if (q->count == MAX_SIZE)
-    {
-        return 1; /*Return 1 if full */
-    }
-    return 0;
-}
-
-/*Adds a new element to the queue */
-void enqueue(queue_t *q, char value[])
-{
-    if (isFull(q))
-    {
-        printf("Queue is full\n");
-        return;
-    }
-    strcpy(q->items[q->back], value);
-    q->back = (q->back + 1) % MAX_SIZE;
-    q->count++;
-}
-
-/*Removes the top element from the queue (First in First out)*/
-void dequeue(queue_t *q)
-{
-    if (isEmpty(q))
-    {
-        printf("Queue is empty\n");
-        return;
-    }
-    q->front = (q->front + 1) % MAX_SIZE;
-    q->count--;
-}
-
-/*Gets the top element from the queue */
-char *peek(queue_t *q)
-{
-    if (isEmpty(q))
-    {
-        printf("Queue is empty\n");
-        return NULL;
-    }
-    return q->items[q->front];
-}
-
-/*Prints the whole queue starting at first added element until last added element */
-void printQueue(queue_t *q)
-{
-    if (isEmpty(q))
-    {
-        printf("Queue is empty\n");
-        return;
-    }
-
-    int i, current = q->front;
-    for (i = 0; i < q->count; i++)
-    {
-        printf("%s ", q->items[current]);
-        current = (current + 1) % MAX_SIZE;
-    }
-    printf("\n");
 }
