@@ -5,6 +5,7 @@
 /* ERROR CODES */
 #define INVALIDARGUMENTSERROR -1
 #define FILENOTFOUNDERROR -2
+#define INVALIDINPUTERROR -3
 
 /* MENU OPTIONS*/
 #define MENUENCODE 1
@@ -124,7 +125,15 @@ int processArgs(int argc, char* argv[], queue_t* queue_p)
         /* Add the output file to queue. */
         enqueue(queue_p, argv[5]);
 
-        encode(argv[3], argv[5], argv[7]);
+        int validFile = checkFileType(argv[3]);
+        if (validFile == 0)
+        {
+            encode(argv[3], argv[5], argv[7]);
+        }   
+        else 
+        {
+            return INVALIDINPUTERROR;
+        }
         return 0;
     }
 
@@ -220,7 +229,7 @@ Parameters:
 
 Returns (int):
     - The status of the corresponding encode function call. 0 if encoding was
-    successful, > 0 if not.
+    successful, < 0 if not.
 */
 int menuEncodeSelected(queue_t* queue_p)
 {
@@ -246,7 +255,16 @@ int menuEncodeSelected(queue_t* queue_p)
 
     printf("\n");
 
-    encode(infile, outfile, message);
+    int validFile = checkFileType(infile);
+    if (validFile == 0)
+    {
+        encode(infile, outfile, message);
+    }   
+    else 
+    {
+        return INVALIDINPUTERROR;
+    }
+    
     return 0;
 }
 
