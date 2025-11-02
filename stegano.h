@@ -73,12 +73,16 @@ int calcPadding(int width);
 /* Checks for correct BMP file type and format */
 int checkFileType(char *filename);
 
+/*** Encode, decode helper functions ***/
 /* Read image, check for correct file format */
 image_t readImage(char *infile);
 
+/* Set LSB of RGB channel to 0 or 1. */
 void setLSBPixel(image_t *pic, int bit_index, int bit);
 
+/* Extract LSB of RGB channel. */
 void getLSBPixel(image_t *pic, int bit_index, int *bit);
+/***************************************/
 
 /* Encode message into image */
 void encode(char *infile, char *outfile, char *message);

@@ -160,36 +160,66 @@ image_t readImage(char *infile) {
     return pic;
 }
 
+/* Calculates indices and accesses RGB channels. Changes the LSB 
+ * of the channel according to the bit.
+ * 
+ * Input:
+ *  - image_t *pic: Pointer to struct pic.
+ *  - int bit_index: Index position in the image (which pixel/channel).
+ *  - int bit: The value of the bit, 0 or 1.
+ * Output:
+ *  - Function of type void.
+ */
 void setLSBPixel(image_t *pic, int bit_index, int bit) {
+    /* Pixel position increases after every 3 channels accessed. 
+       Channel index always 0, 1, or 2. */
     int pixel_index = bit_index / RGB_PER_PIXEL;
     int channel_index = bit_index % RGB_PER_PIXEL;
 
+    /* Pointer to the channel, accessing memory address of each channel based on index. */
     unsigned char *channel;
     if(channel_index == 0) channel = &pic->rgb[pixel_index].red;
     else if(channel_index == 1) channel = &pic->rgb[pixel_index].green;
     else channel = &pic->rgb[pixel_index].blue;
 
+    /* Bitwise operations, setting LSB. */
     if(bit == 1) *channel |= 1;
     else *channel &= ~1;
 }
 
+/* Calculates indices and accesses RGB channels. Extracts the LSB
+ * of the channel then compares it with binary 1.
+ * 
+ * Input:
+ *  - image_t *pic: Pointer to struct pic.
+ *  - int bit_index: Index position of the image (which pixel/channel).
+ *  - int *bit: Pointer to the integer bit, modifying the integer.
+ * Output:
+ *  - Function of type void.
+ */
 void getLSBPixel(image_t *pic, int bit_index, int *bit) {
+    /* Pixel position increases after every 3 channels accessed. 
+       Channel index always 0, 1, or 2. */
     int pixel_index = bit_index / RGB_PER_PIXEL;
     int channel_index = bit_index % RGB_PER_PIXEL;
 
+    /* Pointer to channel, accessing memory address of each channel based on index. */
     unsigned char *channel;
     if(channel_index == 0) channel = &pic->rgb[pixel_index].red;
     else if(channel_index == 1) channel = &pic->rgb[pixel_index].green;
     else channel = &pic->rgb[pixel_index].blue;
 
+    /* Performs bitwise AND with 00000001, isolating LSB. */
     *bit = *channel & 1;
 }
 
-/* Encodes the message into each color value of the pixels.
- * Creates a new image, writes the modified RGB values into 
- * the output image.
- * encode() allocates and frees internal memory.
- * Caller is not responsible for freeing.
+/* Encodes the total bits, message length, Huffman's frequency 
+ * table, and Huffman compressed message into image.
+ * Creates a new image, writes the information including the modified
+ * RGB values into the image.
+ * 
+ * encode() allocates and frees memory to compress the
+ * message internally, no manual/external memory management.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
@@ -198,9 +228,7 @@ void getLSBPixel(image_t *pic, int bit_index, int *bit) {
  *                   to write.
  *  - char *message: Pointer to char (string) message.
  * Output:
- *  - return total_bits: Total number of bits that the huffman compress 
- *                       returns, later be used in decode to stop decode after
- *                       loop reaches total bits.
+ *  - Function of type void.
  */
 void encode(char *infile, char *outfile, char *message) {
     /* Calls the readImage function with local instance pic of image_t struct. */
@@ -211,9 +239,11 @@ void encode(char *infile, char *outfile, char *message) {
         return;
     }
 
+    /* Initialising variables. */
     int i, j;
     int total_bits = 0;
 
+    /* Checks for empty string. */
     int message_len = strlen(message);
     if(message_len == 0) {
         printf("Message is empty.\n");
@@ -233,7 +263,8 @@ void encode(char *infile, char *outfile, char *message) {
 
     /* printf("Compressed message: %s\n", compressed); */
 
-    int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
+    /* Initialising essential variables. */
+    int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE; /* Bits required for the Huffman tree. */
     int required_bits = tree_bits + total_bits;
     int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
 
@@ -249,13 +280,15 @@ void encode(char *infile, char *outfile, char *message) {
 
     /* Stores the total bits in the first 8 LSBs, since max string length after compression is 256. */
     for(i = 0; i < BITS_PER_BYTE; i++) {
-        /* Uses bitwise operator & (AND) to compare against number 1 to get each bit. */
+        /* Performs bitwise >> and AND with 00000001, isolating each bit. */
         int bit = (total_bits >> (7 - i)) & 1;
         
+        /* Call to function, modifying LSB according to bit value. */
         setLSBPixel(&pic, i, bit);
     }
 
-    int start_meslen = 8;
+    /* Set start position after first byte (dedicated for total bits). */
+    int start_meslen = BITS_PER_BYTE;
     for(i = 0; i < BITS_PER_BYTE; i++) {
         int bit = (message_len >> (7 - i)) & 1;
         int j = i + start_meslen;
@@ -263,13 +296,17 @@ void encode(char *infile, char *outfile, char *message) {
         setLSBPixel(&pic, j, bit);
     }
 
+    /* Initialising and building frequency table using original message and its length. */
     int freqTable[MAX_MESSAGE_SIZE] = {0};
     buildFrequencyTable(message, freqTable);
 
-    int start_freq = 16;
+    /* Set start position for frequency table after first 2 bytes (for total bits and message length). */
+    int start_freq = BITS_PER_BYTE * 2;
     for(i = 0; i < MAX_MESSAGE_SIZE; i++) {
+        /* Buffer char for frequency table element. */
         unsigned char buffer = freqTable[i];
         for(j = 0; j < BITS_PER_BYTE; j++) {
+            /* Performs bitwise operations and set frequency index, each element takes 8 bits. */
             int bit = (buffer >> (7 - j)) & 1;
             int freq_index = start_freq + i * BITS_PER_BYTE + j;
             
@@ -277,10 +314,11 @@ void encode(char *infile, char *outfile, char *message) {
         }
     }
 
-    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
+    /* Loops through each character in the Huffman string and alters RGB channels accordingly. */
     for(i = 0; i < total_bits; i++) {
-        /* Starts at the 8th channel. */
+        /* Starts after total bits, message length, and frequency table. */
         int j = i + tree_bits;
+        /* Accesses each element of the Huffman compressed continuous string of 0s and 1s. */
         char current_char = compressed[i];
         int bit;
         /* Checks whether the character in the string is 0, or 1. */
@@ -329,18 +367,21 @@ void encode(char *infile, char *outfile, char *message) {
     free(compressed);
 }
 
-/* Decodes the message from the image using the reserved logic
- * of encoding and puts the message in a string.
- * decode() allocates the compressed data and returns it.
- * Caller (main) is responsible for freeing it.
+/* Decodes the compressed message from the image using the reversed logic
+ * of encoding.
+ * Rebuilds Huffman frequency table with total bits and message length
+ * encoded in the image.
+ * Decompresses the Huffman string, returning the original message.
+ * 
+ * decode() allocates and frees memory to decompress the
+ * message internally, no manual or external memory management.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
  *                  to read.
  *  - char *outstring: Pointer to char outstring (decoded string).
  * Output:
- *  - return compressed: Returns compressed huffman string, can then 
- *                       be used to decompresss.
+ *  - Function of type void.
  */
 void decode(char *infile, char *outstring) {
     /* Calls the readImage function with local instance pic of image_t struct. */
@@ -351,6 +392,7 @@ void decode(char *infile, char *outstring) {
         return;
     }
 
+    /* Initialising variables. Some variables are to be received from the image. */
     int i, j;
     int total_bits = 0, message_len = 0;
     int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
@@ -359,22 +401,29 @@ void decode(char *infile, char *outstring) {
     /* Extracts the number of total bits in the first byte. */
     for(i = 0; i < BITS_PER_BYTE; i++) {
         int bit;
+        /* Calls getLSBPixel. */
         getLSBPixel(&pic, i, &bit);
+        /* Performs bitwise << and |, extracting the 8-bit sequence. */
         total_bits = (total_bits << 1) | bit;
     }
 
     /* printf("total bits: %d\n", total_bits); */
 
+    /* Safety check to make sure encoded data is valid and doesn't overflow image's capacity. */
     if(total_bits <= 0 || tree_bits + total_bits > max_bits) {
         printf("Invalid image data.\n");
         free(pic.header);
         free(pic.rgb);
         return;
     }
-
-    int start_meslen = 8;
+    
+    /* Sets start position after first byte (containing total bits). 
+       Extracts message length. */
+    int start_meslen = BITS_PER_BYTE;
     for(i = 0; i < BITS_PER_BYTE; i++) {
         int bit;
+        /* Initialise index, calls getLSBPixel function, 
+           and performs bitwises operators, extracting the 8-bit sequence. */
         int j = i + start_meslen;
         getLSBPixel(&pic, j, &bit);
         message_len = (message_len << 1) | bit;
@@ -382,7 +431,10 @@ void decode(char *infile, char *outstring) {
     
     /* printf("message len: %d\n", message_len); */
 
-    int start_freq = 16;
+    /* Sets start position after first 2 bytes (containing total bits and message length). 
+       Extracts frequency table to rebuild. */
+    int start_freq = BITS_PER_BYTE * 2;
+    /* Initialising frequency table. */
     int freqTable[MAX_MESSAGE_SIZE] = {0};
     for(i = 0; i < MAX_MESSAGE_SIZE; i++) {
         int current_freq = 0;
@@ -392,9 +444,11 @@ void decode(char *infile, char *outstring) {
             getLSBPixel(&pic, freq_index, &bit);
             current_freq = (current_freq << 1) | bit;
         }
+        /* Appends the value into the frequency table. */
         freqTable[i] = current_freq;
     }
 
+    /* Allocates memory for reconstructed (compressed) string (+1 for null terminator). */
     char *compressed = malloc(total_bits + 1);
     if(!compressed) {
         printf("Decompression failed.\n");
@@ -407,15 +461,18 @@ void decode(char *infile, char *outstring) {
     for(i = 0; i < total_bits; i++) {
         int j = i + tree_bits;
         int bit;
-        /* Checks whether the character in the string is 0, or 1. */
         getLSBPixel(&pic, j, &bit);
         
+        /* Checks for bit value and appends to compressed array. */
         if(bit == 1) compressed[i] = '1';
         else compressed[i] = '0';
     }
 
+    /* Null terminates array at correct end position. */
     compressed[total_bits] = '\0';
 
+    /* Allocates memory for decompressed string. 
+       Reconstructs the original message with encoded frequency table and message length. */
     char *decompressed = decompressMessage(compressed, freqTable, message_len);
     if(!decompressed) {
         printf("Decompression failed.\n");
@@ -425,6 +482,8 @@ void decode(char *infile, char *outstring) {
         return;
     }
 
+    /* Copies decompressed into outstring, which contains 
+       the original message before compression and encryption. */
     strcpy(outstring, decompressed);
 
     free(pic.header);
