@@ -1,19 +1,17 @@
+# Sample makefile
+
 CC = gcc
-CFLAGS = -ansi -Wall -Werror
-OUTDIR = bin
+CFLAGS = -Wall -Werror -ansi -lm
+BMP = new.bmp
 
-stegano.out: $(OUTDIR)/main.o $(OUTDIR)/stegano.o
-	$(CC) $(OUTDIR)/main.o $(OUTDIR)/stegano.o -o $(OUTDIR)/stegano.out -lm
+program: stegano.o main.o
+	$(CC) $(CFLAGS) -o program stegano.o main.o
 
-$(OUTDIR)/main.o: $(OUTDIR) main.c stegano.h
-	$(CC) $(CFLAGS) -c main.c -o $(OUTDIR)/main.o
+stegano.o: stegano.h stegano.c
+	$(CC) $(CFLAGS) -c -o stegano.o stegano.c
 
-$(OUTDIR)/stegano.o: $(OUTDIR) stegano.c
-	$(CC) $(CFLAGS) -c stegano.c -o $(OUTDIR)/stegano.o
+main.o:
+	$(CC) $(CFLAGS) -c -o main.o main.c
 
-$(OUTDIR):
-	mkdir -p $(OUTDIR)
-
-clean: 
-	rm -rf bin
-	
+clean:
+	rm $(BMP) program stegano.o main.o

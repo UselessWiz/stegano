@@ -1,71 +1,42 @@
-#include "stegano.h"
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "stegano.h"
 
-/* Reads the image header and stores its information */
-image_t readImage(char *infile);
+int main() {
+    char infile[] = "image.bmp";
+    char outfile[] = "new.bmp";
+    char message[MAX_MESSAGE_SIZE] = "hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0! hello world 0!";
+    printf("Message before compress: %s\n", message);
+    printf("Length before: %d bytes\n", (int) (strlen(message)));
 
-/* Takes an input file (.bmp image), an output file name to create and the message the user wishes to compress
-and encode into the image. Outputs a status based on if the image was successfully encoded or not. (Khanh) */
-void encode(char *infile, char *outfile, char *message);
+    checkFileType(infile);
 
-/* Takes an input .bmp file and places the decoded message into the outstring char array.
-Outputs a status based on if the image was successfully encoded or not. (Khanh) */
-void decode(char *infile, char *outstring);
+    /* Returns total bits to then be passed to decode() */
+    int total_bits = encode(infile, outfile, message);
 
-/* Simple check to see if the provided filename ends in ".bmp\0". If it does, all good, if not warn the
-user that there might be errors and ask if they want to proceed. Can also check first two bytes for
-0x42 0x4D as per format standard. Only prompt in interactive mode */
-int checkFileType(char *filename);
+    /* Returns pointer to array to then be passed to decompressMessage() */
+    char* compressed = decode(outfile, total_bits);
+    printf("Message after decode (compressed): %s\n", compressed);
+    
+    printf("Length after: %d bytes\n", (int) (strlen(compressed) + 7)/ 8);
 
-/* Takes a string in and returns a compressed version of it - most likely with RLE (Sam)*/
-char *compressMessage(char message[]);
+    /* Sam's code sequence to create frequency table and reversing huffman tree logic, decompressing the message (don't put this comment in final code) */
+    int freqTable[256] = {0};
+    buildFrequencyTable(message, freqTable);
 
-/* Takes a compressed string in and returns the decompressed version of it (Sam) */
-char *decompressMessage(char compressed[]);
+    int messageLength = strlen(message);
 
-/* Using the queue structure, get recently accessed files in order */
-char **getRecentFiles(queue_t *q);
+    char *decompressed = decompressMessage(compressed, freqTable, messageLength);
+    if(!decompressed){
+        printf("Decompression failed!\n");
+        free(compressed);
+        return 1;
+    }
+    printf("Message after decompress: %s\n", decompressed);
+    free(decompressed);
 
-void printMenu(void);
-
-/* Should be run at the start of the program, and processes if the program should run in
-interactive mode or not (and if not, processes what needs to happen based on cmd instructions) */
-void processArgs(int argc, char *argv[]);
-
-int main(int argc, char *argv[])
-{
-    printf("--Testing Queue--\n");
-    queue_t q;
-    initialiseQueue(&q);
-
-    enqueue(&q, 'q');
-    printQueue(&q);
-    enqueue(&q, '2');
-    printQueue(&q);
-    enqueue(&q, '3');
-    printQueue(&q);
-    enqueue(&q, '4');
-    printQueue(&q);
-    enqueue(&q, '5');
-    printQueue(&q);
-    enqueue(&q, '6');
-    printQueue(&q);
-    dequeue(&q);
-    printf("Removed element\n");
-    dequeue(&q);
-    printf("Removed element\n");
-    printQueue(&q);
-    enqueue(&q, '7');
-    printQueue(&q);
-    enqueue(&q, '8');
-    printQueue(&q);
-    enqueue(&q, '1');
-    printQueue(&q);
-    enqueue(&q, '2');
-    printQueue(&q);
-    dequeue(&q);
-    printf("Removed element\n");
-    printQueue(&q);
+    free(compressed);
 
     return 0;
 }

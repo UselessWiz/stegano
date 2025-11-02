@@ -58,13 +58,21 @@ int checkFileType(char *filename) {
         return 1;
     }
 
-    /* Checks for correct header information. */
-    if((ih.biSize != 40) || (ih.biCompression != 0) || (ih.biBitCount != 24)) {
+    /* Checks for correct 24-bit, uncompressed format. */
+    if((ih.biBitCount != 24) || (ih.biCompression != 0)) {
         fclose(image);
-        printf("Image header error\n");
+        printf("Image header error\n"
+               "Must be 24-bit color format and uncompressed\n");
         return 1;
     }
 
+    /* Check for correct bottom-up BMP format. */
+    if((ih.biHeight < 0)) {
+        printf("Top-down BMP not supported\n");
+        return 1;
+    }
+
+    fclose(image);
     return 0;
 }
 
@@ -88,6 +96,7 @@ image_t readImage(char *infile) {
     pic.width = 0;
     pic.height = 0;
     pic.offset = 0;
+    pic.header = NULL;
     pic.rgb = NULL;
     if(!image) {
         printf("readImage open error: %s\n", infile);
@@ -96,31 +105,41 @@ image_t readImage(char *infile) {
 
     /* Seeks specific positions in the image to find the offset, width, 
        height, and header data. */
-    fseek(image, START_BYTE, SEEK_SET);
-    fread(pic.header, 1, HEADER_SIZE, image);
     fseek(image, OFFSET_BYTE, SEEK_SET);
     fread(&pic.offset, sizeof(pic.offset), 1, image);
     fseek(image, WIDTH_BYTE, SEEK_SET);
     fread(&pic.width, sizeof(pic.width), 1, image);
     fseek(image, HEIGHT_BYTE, SEEK_SET);
-    fread(&pic.height, sizeof(pic.height), 1, image); 
-    
-    /* Skips to byte 54 (where the RGB sequence starts). */
-    fseek(image, HEADER_SIZE, SEEK_SET);
+    fread(&pic.height, sizeof(pic.height), 1, image);
+
+    /* Memory allocates *header with size of offset (total size of header in bytes). */
+    pic.header = malloc(pic.offset);
+    if(!pic.header) {
+        printf("pic.header malloc failed\n");
+        fclose(image);
+        return pic;
+    }
+    /* Skips to start to read full header and stores in struct variable. */
+    fseek(image, START_BYTE, SEEK_SET);
+    fread(pic.header, 1, pic.offset, image);
     
     /* Allocates memory for total RGB values. */
     pic.rgb = malloc(pic.width * pic.height * RGB_PER_PIXEL);
     if(!pic.rgb) {
         printf("pic.rgb malloc failed\n");
+        free(pic.header);
         fclose(image);
+        pic.header = NULL;
         return pic;
     }
 
+    /* Skips to offset byte, indicator of where the RGB sequence starts. */
+    fseek(image, pic.offset, SEEK_SET);
     /* Padding and temporary array. */
     int padding = calcPadding(pic.width);
     unsigned char channel[RGB_PER_PIXEL];
-    /* Loops through image dimensions from (height - 1) as BMP files 
-       store information from bottom to top, left to right. */
+
+    /* Loops through image dimensions from (height - 1), following bottom-up convention, left to right. */
     for(i = pic.height - 1; i >= 0; i--) {
         for(j = 0; j < pic.width; j++) {
             /* Index for each value of each pixel. */
@@ -143,6 +162,8 @@ image_t readImage(char *infile) {
 /* Encodes the message into each color value of the pixels.
  * Creates a new image, writes the modified RGB values into 
  * the output image.
+ * encode() allocates and frees internal memory.
+ * Caller is not responsible for freeing.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
@@ -151,58 +172,68 @@ image_t readImage(char *infile) {
  *                   to write.
  *  - char *message: Pointer to char (string) message.
  * Output:
- *  - Function of type void, no output (except the new image).
-*/
-void encode(char *infile, char *outfile, char *message) {
+ *  - return total_bits: Total number of bits that the huffman compress 
+ *                       returns, later be used in decode to stop decode after
+ *                       loop reaches total bits.
+ */
+int encode(char *infile, char *outfile, char *message) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
+    /* Stops the program if readImage returns corrupted image. */
+    if(!pic.rgb || !pic.header) {
+        printf("Failed to allocate memory for pic.rgb and pic.header in encode()\n");
+        return 1;
+    }
 
-    int i, j, k;
-    int char_index = 0, bit_index = 0, bits_hidden = 0;
-    int len = strlen(message);
-    /* +1 to account for null terminator. */
-    int total_bits = (len + 1) * BITS_PER_BYTE;
+    /* Initialising variables. */
+    int max_bits = pic.width * pic.height * RGB_PER_PIXEL;
+    int total_bits = 0;
+    /* Call to compressMessage(), compress message and access total bits from the function. */
+    char *compressed = compressMessage(message, &total_bits);
+    if(!compressed) {
+        printf("Compression failed in encode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        return 1;
+    }
+    /* Checks if the Huffman string is too long (or image is too small). */
+    if(total_bits > max_bits) {
+        printf("Message is too large for image in encode()\n");
+        free(pic.header);
+        free(pic.rgb);
+        free(compressed);
+        return 1;
+    }
+    
+    int i;
+    /* Loops through each character in the Huffman string and alter RGB channels accordingly. */
+    for(i = 0; i < total_bits; i++) {
+        char current_char = compressed[i];
+        int bit;
+        /* Checks whether the character in the string is 0, or 1. */
+        if(current_char == '1') {
+            bit = 1;
+        } else {
+            bit = 0;
+        }
+        
+        /* Indices and temporary array. 
+         * Pixel index increments after every 3 channels.
+         * Modulus always returns 0, 1, or 2, returning channel index.
+         */
+        int pixel_index = i / RGB_PER_PIXEL;
+        int channel_index = i % RGB_PER_PIXEL;
+        unsigned char *channels[RGB_PER_PIXEL] = {
+            &pic.rgb[pixel_index].red,
+            &pic.rgb[pixel_index].green,
+            &pic.rgb[pixel_index].blue
+        };
 
-    /* Loops through the image dimensions until all bits are hidden. */
-    for(i = 0; i < pic.height && bits_hidden < total_bits; i++) {
-        for(j = 0; j < pic.width && bits_hidden < total_bits; j++) {
-            /* Index for RGB value and temporary array. */
-            int index = i * pic.width + j;
-            unsigned char *channels[RGB_PER_PIXEL] = {
-                &pic.rgb[index].red,
-                &pic.rgb[index].green,
-                &pic.rgb[index].blue
-            };
-            /* Loops through 3 color values of a pixel until all bits are hidden. */
-            for(k = 0; k < RGB_PER_PIXEL && bits_hidden < total_bits; k++) {
-                unsigned char current_char;
-                /* Assigns each character and null terminator. */
-                if(char_index < len) {
-                    current_char = message[char_index];
-                } else {
-                    current_char = '\0';
-                }
-
-                /* Uses bitwise operator & (AND) to compare against 
-                   number 1 to get each bit. */
-                int bit = (current_char >> (7 - bit_index)) & 1;
-
-                /* Sets the LSB of the color value to 1 (makes it odd). */
-                if(bit == 1) *channels[k] |= 1;
-
-                /* Sets the LSB of the color value to 0 (makes it even). */
-                else *channels[k] &= ~1;
-
-                /* Increments after each pixel assignment. */
-                bits_hidden++;
-                bit_index++;
-
-                /* Resets and increments after every 8-bit cycle. */
-                if(bit_index == BITS_PER_BYTE) {
-                    bit_index = 0;
-                    char_index++;
-                }
-            }
+        /* Modifying the LSB of each channel based on each Huffman character assessed. */
+        if(bit == 1) {
+            *channels[channel_index] |= 1;
+        } else {
+            *channels[channel_index] &= ~1;
         }
     }
     
@@ -210,7 +241,10 @@ void encode(char *infile, char *outfile, char *message) {
     FILE *newimage = fopen(outfile, "wb");
     if(newimage == NULL) {
         printf("Encode function open error: %s\n", outfile);
-        return;
+        free(pic.header);
+        free(pic.rgb);
+        free(compressed);
+        return 1;
     }
 
     /* Writes the header data from old image. */
@@ -221,11 +255,12 @@ void encode(char *infile, char *outfile, char *message) {
     unsigned char pad[RGB_PER_PIXEL] = {0, 0, 0};
     unsigned char channel[RGB_PER_PIXEL];
 
+    int x, y;
     /* Loops bottom to top, left to right. */
-    for(i = pic.height - 1; i >= 0; i--) {
-        for(j = 0; j < pic.width; j++) {
+    for(y = pic.height - 1; y >= 0; y--) {
+        for(x = 0; x < pic.width; x++) {
             /* Index for each value of each pixel. */
-            int index = i * pic.width + j;
+            int index = y * pic.width + x;
             channel[2] = pic.rgb[index].red;
             channel[1] = pic.rgb[index].green;
             channel[0] = pic.rgb[index].blue;
@@ -237,69 +272,65 @@ void encode(char *infile, char *outfile, char *message) {
     }
 
     fclose(newimage);
+    free(pic.header);
     free(pic.rgb);
+    free(compressed);
+    return total_bits;
 }
 
 /* Decodes the message from the image using the reserved logic
  * of encoding and puts the message in a string.
+ * decode() allocates the compressed data and returns it.
+ * Caller (main) is responsible for freeing it.
  * 
  * Input:
  *  - char *infile: Pointer to char infile, signifies the input file
  *                  to read.
  *  - char *outstring: Pointer to char outstring (decoded string).
  * Output:
- *  - Function of type void, no output.
- * 
-*/
-void decode(char *infile, char *outstring) {
+ *  - return compressed: Returns compressed huffman string, can then 
+ *                       be used to decompresss.
+ */
+char *decode(char *infile, int total_bits) {
     /* Calls the readImage function with local instance pic of image_t struct. */
     image_t pic = readImage(infile);
+    /* Stops the program if readImage returns corrupted image. */
+    if(!pic.rgb || !pic.header) {
+        printf("Failed to allocate memory for pic.rgb and pic.header in decode()\n");
+        return 1;
+    }
 
-    /* Initialises variables and stop flag. */
-    int i, j, k;
-    int char_index = 0, bit_index = 0, flag = 0;
+    /* Initialises variable. */
+    char *compressed = malloc(total_bits + 1);
     unsigned char current_char = 0;
+    int i;
+    int bits_read = 0;
 
-    /* readImage() already reordered pixel rows and RGB values,
-       decode() can loop from top to bottom until stop flag. */
-    for(i = 0; i < pic.height && !flag; i++) {
-        for(j = 0; j < pic.width && !flag; j++) {
-            /* Index and temporary array. */
-            int index = i * pic.width + j;
-            unsigned char *channels[RGB_PER_PIXEL] = {
-                &pic.rgb[index].red,
-                &pic.rgb[index].green,
-                &pic.rgb[index].blue
-            };
+    /* Loops through the pixel and channels to decode the compressed Huffman string. */
+    for(i = 0; i < total_bits && bits_read < total_bits; i++) {
+        /* Indices and temporary array. */
+        int pixel_index = i / RGB_PER_PIXEL;
+        int channel_index = i % RGB_PER_PIXEL;
+        unsigned char *channels[RGB_PER_PIXEL] = {
+            &pic.rgb[pixel_index].red,
+            &pic.rgb[pixel_index].green,
+            &pic.rgb[pixel_index].blue
+        };
 
-            /* Reconstructs the hidden message bit by bit. 
-             * Extracts each value's LSB, shifts current_char left. 
-             * Appends new bit.
-             */
-            for(k = 0; k < RGB_PER_PIXEL && !flag; k++) {
-                int bit = *channels[k] & 1;
-                current_char = (current_char << 1) | bit;
-                bit_index++;
+        /* Extracts the LSB of the channel.
+           Assigns current_char as '0' or '1' accordingly. */
+        int bit = *channels[channel_index] & 1;
+        if(bit == 1) current_char = '1';
+        else current_char = '0';
 
-                /* Stores one character every 8-bit cycle and updates indices. */
-                if(bit_index == BITS_PER_BYTE) {
-                    outstring[char_index] = current_char;
-                    char_index++;
-
-                    /* Triggers stop flag if null terminator (8-bit 0 sequence) is found. */
-                    if(current_char == '\0') {
-                        flag = 1;
-                        break;
-                    }
-                    bit_index = 0;
-                    current_char = 0;
-                }
-            }
-        }
+        /* Appends and increments. */
+        compressed[i] = current_char;
+        bits_read++;
     }
 
     /* Adds a null terminator at the end of the decoded string. */
-    outstring[char_index] = '\0';
+    compressed[bits_read] = '\0';
+    free(pic.header);
     free(pic.rgb);
+    return compressed;
 }
-/********************************************************************/
