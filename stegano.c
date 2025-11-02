@@ -37,7 +37,7 @@ int calcPadding(int width) {
 int checkFileType(char *filename) {
     FILE *image = fopen(filename, "rb");
     if(!image) {
-        printf("checkFileType open error: %s\n", filename);
+        printf("Couldn't open file %s.\n", filename);
         return 1;
     }
 
@@ -54,21 +54,22 @@ int checkFileType(char *filename) {
 
     /* Checks the first 2 bytes (indices of bfType). */
     if((fh.bfType[0] != 'B') || (fh.bfType[1] != 'M')) {
-        printf("File not .bmp\n");
+        printf("Incorrect file format.\n");
         return 1;
     }
 
     /* Checks for correct 24-bit, uncompressed format. */
     if((ih.biBitCount != 24) || (ih.biCompression != 0)) {
         fclose(image);
-        printf("Image header error\n"
+        printf("Incorrect image format. "
                "Must be 24-bit color format and uncompressed\n");
         return 1;
     }
 
     /* Check for correct bottom-up BMP format. */
     if((ih.biHeight < 0)) {
-        printf("Top-down BMP not supported\n");
+        printf("Incorrect image format. "
+            "Top-down BMP not supported.\n");
         return 1;
     }
 
@@ -99,7 +100,7 @@ image_t readImage(char *infile) {
     pic.header = NULL;
     pic.rgb = NULL;
     if(!image) {
-        printf("readImage open error: %s\n", infile);
+        printf("Couldn't open image %s.\n", infile);
         return pic;
     }
 
@@ -115,7 +116,7 @@ image_t readImage(char *infile) {
     /* Memory allocates *header with size of offset (total size of header in bytes). */
     pic.header = malloc(pic.offset);
     if(!pic.header) {
-        printf("pic.header malloc failed\n");
+        printf("Memory Allocation Error.\n");
         fclose(image);
         return pic;
     }
@@ -126,7 +127,7 @@ image_t readImage(char *infile) {
     /* Allocates memory for total RGB values. */
     pic.rgb = malloc(pic.width * pic.height * RGB_PER_PIXEL);
     if(!pic.rgb) {
-        printf("pic.rgb malloc failed\n");
+        printf("Memory Allocation Error.\n");
         free(pic.header);
         fclose(image);
         pic.header = NULL;
@@ -206,7 +207,7 @@ void encode(char *infile, char *outfile, char *message) {
     image_t pic = readImage(infile);
     /* Stops the program if readImage returns corrupted image. */
     if(!pic.rgb || !pic.header) {
-        printf("Failed to allocate memory for pic.rgb and pic.header in encode()\n");
+        printf("Failed to allocate memory.\n");
         return;
     }
 
@@ -215,7 +216,7 @@ void encode(char *infile, char *outfile, char *message) {
 
     int message_len = strlen(message);
     if(message_len == 0) {
-        printf("Message is empty - encode()\n");
+        printf("Message is empty.\n");
         free(pic.header);
         free(pic.rgb);
         return;
@@ -224,13 +225,13 @@ void encode(char *infile, char *outfile, char *message) {
     /* Call to compressMessage(), compress message and access total bits from the function. */
     char *compressed = compressMessage(message, &total_bits);
     if(!compressed) {
-        printf("Compression failed in encode()\n");
+        printf("Compression failed.\n");
         free(pic.header);
         free(pic.rgb);
         return;
     }
 
-    printf("Compressed message: %s\n", compressed);
+    /* printf("Compressed message: %s\n", compressed); */
 
     int tree_bits = BITS_PER_BYTE * 2 + MAX_MESSAGE_SIZE * BITS_PER_BYTE;
     int required_bits = tree_bits + total_bits;
@@ -238,8 +239,8 @@ void encode(char *infile, char *outfile, char *message) {
 
     /* Checks if image is too small (or message too large). */
     if(total_bits > (MAX_MESSAGE_SIZE - 1) || required_bits > max_bits) {
-        if(total_bits > (MAX_MESSAGE_SIZE - 1)) printf("Message is too large - encode()\n");
-        else printf("Image too small - encode()\n");
+        if(total_bits > (MAX_MESSAGE_SIZE - 1)) printf("Message is too large.\n");
+        else printf("Image is too small.\n");
         free(pic.header);
         free(pic.rgb);
         free(compressed);
@@ -292,7 +293,7 @@ void encode(char *infile, char *outfile, char *message) {
     /* Creates new image. */
     FILE *newimage = fopen(outfile, "wb");
     if(newimage == NULL) {
-        printf("Encode function open error: %s\n", outfile);
+        printf("Couldn't create file %s.\n", outfile);
         free(pic.header);
         free(pic.rgb);
         free(compressed);
@@ -346,7 +347,7 @@ void decode(char *infile, char *outstring) {
     image_t pic = readImage(infile);
     /* Stops the program if readImage returns corrupted image. */
     if(!pic.rgb || !pic.header) {
-        printf("Failed to allocate memory for pic.rgb and pic.header in decode()\n");
+        printf("Failed to allocate memory.\n");
         return;
     }
 
@@ -362,10 +363,10 @@ void decode(char *infile, char *outstring) {
         total_bits = (total_bits << 1) | bit;
     }
 
-    printf("total bits: %d\n", total_bits);
+    /* printf("total bits: %d\n", total_bits); */
 
     if(total_bits <= 0 || tree_bits + total_bits > max_bits) {
-        printf("Invalid total_bits in decode()\n");
+        printf("Invalid image data.\n");
         free(pic.header);
         free(pic.rgb);
         return;
@@ -379,7 +380,7 @@ void decode(char *infile, char *outstring) {
         message_len = (message_len << 1) | bit;
     }
     
-    printf("message len: %d\n", message_len);
+    /* printf("message len: %d\n", message_len); */
 
     int start_freq = 16;
     int freqTable[MAX_MESSAGE_SIZE] = {0};
@@ -396,7 +397,7 @@ void decode(char *infile, char *outstring) {
 
     char *compressed = malloc(total_bits + 1);
     if(!compressed) {
-        printf("Compression failed in decode()\n");
+        printf("Decompression failed.\n");
         free(pic.header);
         free(pic.rgb);
         return;
@@ -417,7 +418,7 @@ void decode(char *infile, char *outstring) {
 
     char *decompressed = decompressMessage(compressed, freqTable, message_len);
     if(!decompressed) {
-        printf("Decompression failed in decode()\n");
+        printf("Decompression failed.\n");
         free(pic.header);
         free(pic.rgb);
         free(compressed);
@@ -867,4 +868,86 @@ char* decompressMessage(const char compressed[], const int freqTable[256], int m
     freeHuffmanTree(root);
     return output;
 
+}
+
+/*Set all values to 0 in Struct */
+void initialiseQueue(queue_t *q)
+{
+    q->front = 0;
+    q->back = 0;
+    q->count = 0;
+}
+
+/*Check to see if Queue is empty*/
+int isEmpty(queue_t *q)
+{
+    if (q->count == 0)
+    {
+        return 1; /*Return 1 if empty */
+    }
+    return 0; /*Return 0 if not empty */
+}
+
+/*Check to see if Queue is full */
+int isFull(queue_t *q)
+{
+    if (q->count == MAX_SIZE)
+    {
+        return 1; /*Return 1 if full */
+    }
+    return 0;
+}
+
+/*Adds a new element to the queue */
+void enqueue(queue_t *q, char value[])
+{
+    if (isFull(q))
+    {
+        printf("Queue is full.\n");
+        return;
+    }
+    strcpy(q->items[q->back], value);
+    q->back = (q->back + 1) % MAX_SIZE;
+    q->count++;
+}
+
+/*Removes the top element from the queue (First in First out)*/
+void dequeue(queue_t *q)
+{
+    if (isEmpty(q))
+    {
+        printf("Queue is empty.\n");
+        return;
+    }
+    q->front = (q->front + 1) % MAX_SIZE;
+    q->count--;
+}
+
+/*Gets the top element from the queue */
+char *peek(queue_t *q)
+{
+    if (isEmpty(q))
+    {
+        printf("Queue is empty.\n");
+        return NULL;
+    }
+    return q->items[q->front];
+}
+
+/*Prints the whole queue starting at first added element until last added element */
+void printQueue(queue_t *q)
+{
+    if (isEmpty(q))
+    {
+        printf("Queue is empty.\n");
+        return;
+    }
+
+    int i, current = q->front;
+    for (i = 0; i < q->count; i++)
+    {
+        printf("%s ", q->items[current]);
+        current = (current + 1) % MAX_SIZE;
+    }
+    printf("\n");
 }
